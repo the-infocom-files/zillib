@@ -7,3 +7,5 @@
 ## Future Development
 
 The one version held in The Obsessively Complete Infocom Catalog has been selected as the starting point for future development.
+
+Compilation issues are recorded [here](https://github.com/the-infocom-files/zillib/issues/2).
