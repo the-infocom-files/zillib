@@ -1,0 +1,2151 @@
+"PARSER file for NEW PARSER
+Copyright (C) 1988 Infocom, Inc.  All rights reserved."
+
+<ZZPACKAGE "PARSER">
+
+<ENTRY PARSER PARSE-SENTENCE PARSE-IT PARSER-ERROR TLEXV P-OFLAG P-WALK-DIR
+	RED-SD ;" P-PRSO P-PRSI PRSA PRSO PRSI">
+
+<RENTRY DEBUG-PARSER>
+
+<RENTRY	ACCESSIBLE?
+	BUZZER-WORD?
+	DIR-VERB?
+	FEMALE
+	GLOBAL-OBJECTS
+	LIT
+	LIT?
+	ONBIT
+	OPENBIT
+	P-INBUF
+	P-LEXV
+	P-NUMBER
+	P?THINGS
+	PERFORM
+	PERSONBIT
+	PLAYER
+	PRINT-VOCAB-WORD
+	SEARCHBIT
+	;SPECIAL-ADJ-CHECK
+	SPECIAL-CONTRACTION?
+	SURFACEBIT
+	TAKEBIT
+	TELL-CTHE
+	TELL-THE
+	TITLE-ABBR?
+	TRANSBIT
+	TRYTAKEBIT
+	;VEHBIT
+	VERBOSITY
+	VISIBLE?
+	WINNER>
+
+<INCLUDE "BASEDEFS" "PBITDEFS" "PDEFS" "SYMBOLS">
+
+<USE "PSTACK" "PMEM">
+
+<FILE-FLAGS MDL-ZIL? CLEAN-STACK?>
+
+<BEGIN-SEGMENT 0>
+
+<COMPILATION-FLAG-DEFAULT P-APOSTROPHE-BREAKS-WORDS T>
+<COMPILATION-FLAG-DEFAULT P-BE-VERB <>>
+;<COMPILATION-FLAG-DEFAULT P-DEBUGGING-PARSER T>
+
+<DEFAULTS-DEFINED
+	BE-PATIENT
+	BEG-PARDON
+	BUZZER-WORD?
+	;CANT-UNDO
+	COLLECTIVE-VERB?
+	CONTBIT
+	DIR-VERB?
+	FEMALE
+	GAME-VERB?
+	INVISIBLE
+	LIT?
+	;MOBY-FIND?
+	NARTICLEBIT
+	NUMBER?
+	ONBIT
+	OPENBIT
+	P-NO-MEM-ROUTINE
+	PERSONBIT
+	PLAYER
+	PLURAL
+	;PRINT-VOCAB-WORD
+	QCONTEXT-CHECK
+	READ-INPUT
+	ROOMSBIT
+	;SEARCH-IN-LG?
+	SEARCHBIT
+	SEENBIT
+	;SPECIAL-ADJ-CHECK
+	SPECIAL-CONTRACTION?
+	STATUS-LINE
+	SURFACEBIT
+	TAKEBIT
+	TELL-CTHE
+	TELL-GWIM-MSG
+	TELL-THE
+	TITLE-ABBR?
+	TOUCHBIT
+	TRANSBIT
+	TRYTAKEBIT
+	UNKNOWN-WORD
+	;VEHBIT>
+
+<COND (<NOT <GASSIGNED? DEBUG-PARSER>> <SETG DEBUG-PARSER <>>)>
+
+<DEFAULT-DEFINITION CONTBIT T>
+<DEFAULT-DEFINITION FEMALE T>
+<DEFAULT-DEFINITION INVISIBLE T>
+<DEFAULT-DEFINITION NARTICLEBIT T>
+<DEFAULT-DEFINITION ONBIT T>
+<DEFAULT-DEFINITION OPENBIT T>
+<DEFAULT-DEFINITION PERSONBIT T>
+<DEFAULT-DEFINITION PLAYER T>
+<DEFAULT-DEFINITION PLURAL T>
+<DEFAULT-DEFINITION ROOMSBIT T>
+<DEFAULT-DEFINITION SEARCHBIT T>
+<DEFAULT-DEFINITION SEENBIT T>
+<DEFAULT-DEFINITION SURFACEBIT T>
+<DEFAULT-DEFINITION TAKEBIT T>
+<DEFAULT-DEFINITION TOUCHBIT T>
+<DEFAULT-DEFINITION TRANSBIT T>
+<DEFAULT-DEFINITION TRYTAKEBIT T>
+;<DEFAULT-DEFINITION VEHBIT T>
+
+<DEFMAC IF-SHORT ('EXPR1 "OPT" 'EXPR2)
+  <COND (<L=? ,NUMBER-WORD-CLASSES 15>
+	 <COND (<AND .EXPR1 <N==? .EXPR1 '<>>> .EXPR1)>)
+	(<ASSIGNED? EXPR2> .EXPR2)>>
+
+<CONSTANT STATE-STACK <ALLOCATE-PSTACK>>
+<CONSTANT SPLIT-STACK <ALLOCATE-PSTACK>>
+<CONSTANT DATA-STACK <ALLOCATE-PSTACK>>
+
+<MSETG LEXV-LENGTH 59 ;39>
+<MSETG LEXV-LENGTH-BYTES <+ 2 <* 4 ,LEXV-LENGTH>>>
+<CONSTANT P-LEXV
+	<ITABLE ,LEXV-LENGTH (LEXV) 0 #BYTE 0 #BYTE 0>>	"current input"
+<CONSTANT G-LEXV
+	<ITABLE ,LEXV-LENGTH (LEXV) 0 #BYTE 0 #BYTE 0>>	"previous for OOPS & G"
+<CONSTANT O-LEXV
+	<ITABLE ,LEXV-LENGTH (LEXV) 0 #BYTE 0 #BYTE 0>>	"previous for orphan"
+;<CONSTANT M-LEXV
+	<ITABLE ,LEXV-LENGTH (LEXV) 0 #BYTE 0 #BYTE 0>>	"more cmds after G"
+
+<MSETG INBUF-LENGTH <+ 1 ,LEXV-LENGTH>>
+<CONSTANT P-INBUF <ITABLE ,INBUF-LENGTH (BYTE LENGTH) 0>>
+<CONSTANT G-INBUF <ITABLE ,INBUF-LENGTH (BYTE LENGTH) 0>>
+<CONSTANT O-INBUF <ITABLE ,INBUF-LENGTH (BYTE LENGTH) 0>>
+;<CONSTANT M-INBUF <ITABLE ,INBUF-LENGTH (BYTE LENGTH) 0>>
+
+<MSETG P-LEXWORDS 1>	"# of valid entries in LEXV (byte)"
+<MSETG P-LEXSTART 1>	"First LEXV entry (word)"
+<MSETG P-LEXELEN 2>	"Words/LEXV entry"
+
+<CONSTANT OOPS-TABLE <TABLE <> <> <> <> <>>>
+<MSETG O-START 0>	"word pointer to sentence start in P-LEXV"
+<MSETG O-LENGTH 1>	"number of unparsed tokens in P-LEXV"
+<MSETG O-END 2>		"byte pointer to first free byte in G-INBUF"
+<MSETG O-PTR 3>		"word pointer to unknown token in P-LEXV"
+<MSETG O-AGAIN 4>	"word pointer to sentence start in O-LEXV"
+
+<GLOBAL WINNER:OBJECT PLAYER>
+
+<GLOBAL P-OFLAG:NUMBER 0>
+<GLOBAL P-NUMBER:NUMBER 0>
+<SETG CURRENT-REDUCTION <>>
+<SETG PARSER-RESULT <>>
+<SETG P-WALK-DIR <>>
+<SETG TLEXV 0>
+<SETG OTLEXV 0>
+;<GLOBAL M-PTR:NUMBER 0>
+;<GLOBAL M-LEN:NUMBER 0>
+
+<CONSTANT ERROR-ARGS:TABLE <ITABLE 4 ;7 <>>>
+<GLOBAL ERROR-STRING:STRING <>>
+<GLOBAL ERROR-PRIORITY:NUMBER 0>
+
+<ADD-WORD "AGAIN" MISCWORD>
+<ADD-WORD "G" MISCWORD>
+<ADD-WORD "OOPS" MISCWORD>
+<ADD-WORD "O" MISCWORD>
+
+;<IF-UNDO <GLOBAL P-CAN-UNDO:NUMBER 0>>
+
+<GLOBAL P-LEN:NUMBER 0>		"number of tokens yet to be parsed"
+
+<DEFAULT-DEFINITION STATUS-LINE
+
+<DEFINE INIT-STATUS-LINE ()
+	 <SPLIT 1>
+	 <SCREEN ,S-WINDOW>
+	 <CURSET 1 1>
+	 <HLIGHT ,H-INVERSE>
+	 <ERASE 1>	;<PRINT-SPACES <LOWCORE SCRH>>
+	 <HLIGHT ,H-NORMAL>
+	 <SCREEN ,S-TEXT>
+	 <RTRUE>>
+
+<GLOBAL OLD-HERE:OBJECT <>>
+
+<DEFINE UPDATE-STATUS-LINE ()
+	 <SCREEN ,S-WINDOW>
+	 <HLIGHT ,H-INVERSE>
+	 <COND (<NOT <EQUAL? ,HERE ,OLD-HERE>>
+		<SETG OLD-HERE ,HERE>
+		<CURSET 1 1>		;"Erase old desc."
+		<ERASE 1>	;<PRINT-SPACES <LOWCORE SCRH>>
+		<CURSET 1 1>
+		<TELL D ,HERE>)>
+	 <CURSET 1 <- <LOWCORE SCRH>
+		      <+ <DIGITS ,SCORE> <DIGITS ,MOVES>>>>
+	 <TELL N ,SCORE C !\/ N ,MOVES>
+	 <HLIGHT ,H-NORMAL>
+	 <SCREEN ,S-TEXT>
+	 <RTRUE>>
+
+<DEFINE DIGITS (N "AUX" (D 1))
+   <COND (<L? .N 0>
+	  <SET D <+ 1 .D>>	;"negative sign"
+	  <SET N <- 0 .N>>)>
+   <REPEAT ()
+	<SET N </ .N 10>>
+	<COND (<0? .N>
+	       <RETURN>)
+	      (T
+	       <SET D <+ 1 .D>>)>>
+   .D>>
+
+<DEFAULT-DEFINITION READ-INPUT
+ <GLOBAL DEMO-VERSION? <>>
+ <DEFINE READ-INPUT ()
+	<TELL ">">
+	<COND (T ;<OR <CHECK-EXTENDED? XZIP>
+		      <CHECK-EXTENDED? YZIP>>
+	       <PUTB ,P-INBUF 1 0>)>
+	<COND (,DEMO-VERSION?
+	       <READ-DEMO ,P-INBUF ,P-LEXV>)
+	      (T
+	       <ZREAD ,P-INBUF ,P-LEXV>)>
+	<COND (T ;<CHECK-EXTENDED? YZIP>
+	       <SCRIPT-INBUF>)>>
+ <DEFINE SCRIPT-INBUF ("AUX" BUF (CNT 0) (N <GETB ,P-INBUF 1>) CHR)
+	 <DIROUT ,D-SCREEN-OFF>
+	 <SET BUF <REST ,P-INBUF>>
+	 <REPEAT ()
+		 <COND (<IGRTR? CNT .N> <RETURN>)
+		       (ELSE
+			<SET CHR <GETB .BUF .CNT>> 
+			<COND (<AND <G=? .CHR !\a>
+				    <L=? .CHR !\z>>
+			       <PRINTC <- .CHR 32>>)
+			      (ELSE <PRINTC .CHR>)>)>>
+	 <CRLF>
+	 <DIROUT ,D-SCREEN-ON>>>
+
+<IFFLAG (<AND P-BE-VERB P-APOSTROPHE-BREAKS-WORDS>
+
+<CONSTANT P-QB-WORDS-1
+       <PLTABLE	<VOC "ARE">	<VOC "CAN">	<VOC "COULD">	<VOC "DO">
+		<VOC "DOES">	<VOC "DID">	<VOC "HE">	<VOC "I">
+		<VOC "IS">	<VOC "IT">	;<VOC "MAY">	;<VOC "MIGHT">
+		;<VOC "MUST">	;<VOC "OUGHT">	;<VOC "SHALL">	<VOC "SHE">
+		<VOC "SHOULD">	<VOC "THAT">	<VOC "THEY">	<VOC "WAS">
+		<VOC "WE">	<VOC "WERE">	<VOC "WILL">	<VOC "WOULD">
+		<VOC "YOU">>>
+
+<CONSTANT P-QB-WORDS-2
+       <PLTABLE	<VOC "NOT">	<VOC "NOT">	<VOC "NOT">	<VOC "NOT">
+		<VOC "NOT">	<VOC "NOT">	<VOC "IS">	<VOC "AM">
+		<VOC "NOT">	<VOC "IS">	;<VOC "NOT">	;<VOC "NOT">
+		;<VOC "NOT">	;<VOC "NOT">	;<VOC "NOT">	<VOC "IS">
+		<VOC "NOT">	<VOC "IS">	<VOC "ARE">	<VOC "NOT">
+		<VOC "ARE">	<VOC "NOT">	<VOC "NOT">	<VOC "NOT">
+		<VOC "ARE">>>
+
+<CONSTANT P-QA-WORDS1
+       <PLTABLE	<VOC "AREN">	<VOC "CAN">	<VOC "COULDN">	<VOC "DON">
+		<VOC "DOESN">	<VOC "DIDN">	<VOC "HE">	<VOC "I">
+		<VOC "ISN">	<VOC "IT">	;<VOC "MAYN">	;<VOC "MIGHTN">
+		;<VOC "MUSTN">	;<VOC "OUGHTN">	;<VOC "SHAN">	<VOC "SHE">
+		<VOC "SHOULDN">	<VOC "THAT">	<VOC "THEY">	<VOC "WASN">
+		<VOC "WE">	<VOC "WEREN">	<VOC "WON">	<VOC "WOULDN">
+		<VOC "YOU">>>
+
+<CONSTANT P-QA-WORDS2
+       <PLTABLE	<VOC "T">	<VOC "T">	<VOC "T">	<VOC "T">
+		<VOC "T">	<VOC "T">	<VOC "S">	<VOC "M">
+		<VOC "T">	<VOC "S">	;<VOC "T">	;<VOC "T">
+		;<VOC "T">	;<VOC "T">	;<VOC "T">	<VOC "S">
+		<VOC "T">	<VOC "S">	<VOC "RE">	<VOC "T">
+		<VOC "RE">	<VOC "T">	<VOC "T">	<VOC "T">
+		<VOC "RE">>>
+
+<DEFAULT-DEFINITION SPECIAL-CONTRACTION?
+ <DEFINE SPECIAL-CONTRACTION? (PTR) <>>>
+
+<DEFINE EXPAND-BE-CONTRACTIONS ("AUX" LEN PTR OPTR)
+ <SET LEN <GETB ,P-LEXV ,P-LEXWORDS>>
+ <SET PTR <REST-TO-SLOT ,P-LEXV LEXV-START>>
+ <SET OPTR .PTR>
+ <REPEAT (N WD SPWD (L .LEN))
+	<SET SPWD <>>
+	<COND (<DLESS? L 0>
+	       <PUTB ,P-LEXV ,P-LEXWORDS .LEN>
+	       <RETURN>)
+	      (<AND <SET WD <ZGET .PTR 0>>
+		    <EQUAL? <ZGET .PTR ,P-LEXELEN> ,W?APOSTROPHE>
+		    <OR <AND <SET N <INTBL? .WD <ZREST ,P-QA-WORDS1 2>
+						<ZGET ,P-QA-WORDS1 0>>>
+			     <EQUAL? <ZGET ,P-QA-WORDS2
+					   <SET N </ <- .N ,P-QA-WORDS1> 2>>>
+				     <ZGET .PTR <* 2 ,P-LEXELEN>>>>
+			<SET SPWD <SPECIAL-CONTRACTION? .PTR>>>>
+	       <COPYT <ZREST .PTR <COND (<T? .SPWD>
+					 <* 2 ,LEXV-ELEMENT-SIZE-BYTES>)
+					(T ,LEXV-ELEMENT-SIZE-BYTES)>>
+		      .PTR
+		      <* .L ,LEXV-ELEMENT-SIZE-BYTES>>
+	       ;"need to call INBUF-ADD-VOC for these words:"
+	       <COND (<T? .SPWD>
+		      <ZPUT .PTR 0 .SPWD>
+		      <DEC L>
+		      <DEC LEN>)
+		     (T
+		      <SET WD <ZGET ,P-QB-WORDS-1 .N>>
+		      <ZPUT .PTR 0 .WD>
+		      <SET WD <ZGET ,P-QB-WORDS-2 .N>>
+		      <ZPUT .PTR ,P-LEXELEN .WD>)>
+	       <DEC L>
+	       <DEC LEN>)
+	      (<AND <EQUAL? .WD ,W?APOSTROPHE>	;"e.g. Moses'"
+		    <NOT <EQUAL? <ZGET .PTR ,P-LEXELEN> ,W?S>>
+		    <NOT <EQUAL? .OPTR .PTR>>
+		    <SET WD <ZBACK .PTR ,LEXV-ELEMENT-SIZE-BYTES>>
+		    <EQUAL? <GETB ,P-INBUF <+ -1
+					      <LEXV-WORD-LENGTH .WD>
+					      <LEXV-WORD-OFFSET .WD>>>
+			    !\s !\z>>
+	       <MAKE-ROOM-FOR-TOKENS 1 ,P-LEXV
+				     <+ ,P-LEXELEN </ <- .PTR ,P-LEXV> 2>>>
+	       <ZPUT .PTR ,P-LEXELEN ,W?S>
+	       <INC L>
+	       <INC LEN>)
+	      (T
+	       <SET PTR <+ .PTR ,LEXV-ELEMENT-SIZE-BYTES>>)>>>)>
+
+<DEFAULT-DEFINITION TELL-THE
+<DEFINE TELL-THE (OBJ "AUX" TMP)
+ <COND (<EQUAL? .OBJ ,PLAYER>
+	<TELL "you">)
+       (T
+	<COND (<SET TMP <GET-OWNER .OBJ>>
+	       <COND (<EQUAL? .TMP ,PLAYER>
+		      <TELL "your ">)
+		     (<NOT <EQUAL? .TMP .OBJ>>
+		      <TELL-THE .TMP ;T>
+		      <TELL "'s ">)>)
+	      (<NOT <FSET? .OBJ ,NARTICLEBIT>>
+	       <TELL "the ">)>
+	<TELL D .OBJ>)>>>
+
+<DEFAULT-DEFINITION TELL-CTHE
+<DEFINE TELL-CTHE (OBJ "AUX" TMP)
+ <COND (<EQUAL? .OBJ ,PLAYER>
+	<TELL "You">)
+       (T
+	<COND (<SET TMP <GET-OWNER .OBJ>>
+	       <COND (<EQUAL? .TMP ,PLAYER>
+		      <TELL "Your ">)
+		     (<NOT <EQUAL? .TMP .OBJ>>
+		      <TELL-CTHE .TMP ;T>
+		      <TELL "'s ">)>)
+	      (<NOT <FSET? .OBJ ,NARTICLEBIT>>
+	       <TELL "The ">)>
+	<TELL D .OBJ>)>>>
+
+<COMPILATION-FLAG-DEFAULT P-ZORK0 <>>
+<IF-P-ZORK0
+<CONSTANT P-ADJ-CODE 1>
+<CONSTANT P-COMMA-CODE 10>
+<CONSTANT P-DIR-CODE 9>
+<CONSTANT P-EOI-CODE 8>
+<CONSTANT P-NOUN-CODE 2>
+<CONSTANT P-PARTICLE-CODE 3>
+<CONSTANT P-PREP-CODE 4>
+<CONSTANT P-QUANT-CODE 5>
+<CONSTANT P-QW1-CODE 6>
+<CONSTANT P-VERB-CODE 7>
+
+<CONSTANT P-CODE-TABLE
+	  <TABLE (PURE LENGTH)
+		 P-ADJ-CODE
+		 <GET-CLASSIFICATION ADJ>
+		 P-DIR-CODE
+		 <GET-CLASSIFICATION DIR>
+		 P-EOI-CODE
+		 <GET-CLASSIFICATION END-OF-INPUT>
+		 P-NOUN-CODE
+		 <GET-CLASSIFICATION NOUN>
+		 P-PARTICLE-CODE
+		 <GET-CLASSIFICATION PARTICLE>
+		 P-PREP-CODE
+		 <GET-CLASSIFICATION PREP>
+		 P-QUANT-CODE
+		 <GET-CLASSIFICATION QUANT>
+		 ;P-QW1-CODE
+		 ;<COND (<LOOKUP "QWORD" ,SYMBOL-OBS>
+				<GET-CLASSIFICATION QWORD>)
+			       (T 0)>
+		 P-VERB-CODE
+		 <GET-CLASSIFICATION VERB>>>
+
+<DEFINE WORD-TYPE? ACT (WD TYP "OPT" TYP2 "AUX" GC WCN)
+	 ;<WORD-CLASSIFICATION-NUMBER .WD <> WCN>
+	 <SET WCN <GETB .WD 8>>
+	 <COND (<BAND .WCN 128>
+		<SET WCN <SHIFT <BAND .WCN 127> 7>>)>
+	 <COND (<0? .WCN>	;"synonym?"
+		<SET WD <WORD-SEMANTIC-STUFF .WD>>
+		<SET WCN <GETB .WD 8>>
+		<COND (<BAND .WCN 128>
+		       <SET WCN <SHIFT <BAND .WCN 127> 7>>)>
+		;<WORD-CLASSIFICATION-NUMBER .WD <> WCN>)>
+	 <COND (<AND <ASSIGNED? TYP2>
+		     <WORD-TYPE? .WD .TYP2>>
+		<RETURN .WD>)>
+	 <COND (<AND <EQUAL? .TYP ,P-COMMA-CODE>
+		     <EQUAL? .WD ,W?COMMA ,W?AND>>
+		<RETURN .WD .ACT>)>
+	 <COND (<SET GC <INTBL? .TYP <ZREST ,P-CODE-TABLE 2> <ZGET ,P-CODE-TABLE 0>>>
+		<SET GC <ZGET .GC 1>>)
+	       (T <RFALSE>)>
+	 <COND (
+		%<COND (<G? ,NUMBER-WORD-CLASSES:FIX 15>
+			<FORM AND <FORM ==? <FORM ANDB '.WCN *100000*>
+					    <FORM ANDB '.GC *100000*>>
+			      <FORM NOT
+				    <FORM 0? <FORM ANDB '.WCN '.GC *77777*>>>>)
+		       (T
+			<FORM NOT <FORM 0? <FORM ANDB '.WCN '.GC>>>)>
+		.WD)>>>
+
+<COMPILATION-FLAG-DEFAULT P-PS-ADV T>
+<GLOBAL P-DIRECTION:NUMBER 0>
+
+<COMPILATION-FLAG-DEFAULT P-TITLE-ABBRS <>>
+
+<DEFAULT-DEFINITION TITLE-ABBR?
+<DEFMAC TITLE-ABBR? ('WRD) <FORM EQUAL? .WRD ,W?MR ,W?MRS ,W?MS>>>
+
+<DEFINE NAKED-DIR? ACT ("AUX" WCNUM (LEN <ZGET ,TLEXV 0>))
+ <COND (<ZERO? .LEN>
+	<RETURN <> .ACT>)>
+ <IFFLAG (P-ZORK0
+	  <COND (<NOT <SET LEN <WORD-TYPE? .LEN ,P-DIR-CODE>>>
+		 <RFALSE>)>)
+	 (T
+	  <SET WCNUM <WORD-CLASSIFICATION-NUMBER .LEN>>
+	  <COND (<ZERO? .WCNUM>
+		 <SET LEN <WORD-SEMANTIC-STUFF .LEN>>
+		 <SET WCNUM <WORD-CLASSIFICATION-NUMBER .LEN>>)>
+	  <COND (<NOT <COMPARE-WORD-TYPES .WCNUM <GET-CLASSIFICATION DIR>>>
+		 <RETURN <> .ACT>)>)>
+ <COND (<EQUAL? ,P-LEN 1>
+	<RETURN .LEN .ACT>)
+       (<G=? <- ,TLEXV ,P-LEXV>
+	     <- ,LEXV-LENGTH-BYTES <* 2 ,P-LEXELEN>>>
+	<RETURN .LEN .ACT>)>
+ <IFFLAG (P-ZORK0
+	  <COND (<WORD-TYPE? <ZGET ,TLEXV ,P-LEXELEN> ,P-EOI-CODE ,P-COMMA-CODE>
+		 .LEN)>)
+	 (T
+	  <COND (<EQUAL? <SET WCNUM <ZGET ,TLEXV ,P-LEXELEN>> ,W?COMMA ,W?AND>
+		 <RETURN .LEN .ACT>)>
+	  <SET WCNUM <WORD-CLASSIFICATION-NUMBER .WCNUM>>
+	  <COND (<COMPARE-WORD-TYPES .WCNUM <GET-CLASSIFICATION END-OF-INPUT>>
+		 .LEN)>)>>
+
+<DEFINE PARSER PARSER ("AUX" OWINNER LEN N)
+	<COND (T ;<F? ,P-OFLAG>
+	       <IF-P-DEBUGGING-PARSER
+		<COND (<T? ,P-DBUG>
+		       <PRINTI "[Reset of PMEM: ">
+		       <PRINTN ,PMEM-WORDS-USED>
+		       <PRINTI " words used.]|">)>>
+	       <PMEM-RESET>)>
+	<SETG ERROR-PRIORITY 255>
+	<SETG ERROR-STRING <>>
+	<SET OWINNER ,WINNER>
+	;<SETG P-WON <>>
+	<COND ;(<NOT <F? ,M-PTR>>
+	       <PARSER-M>)
+	      (<G? ,P-CONT 0>
+	       <SETG TLEXV ,P-CONT>
+	       <COND (<AND <NOT <0? ,VERBOSITY>> <EQUAL? ,PLAYER ,WINNER>>
+		      <CRLF>)>
+	       <SETG P-CONT <>>)
+	      (T
+	       <SETG WINNER ,PLAYER>
+	       <COND (<AND <ZERO? ,P-OFLAG>
+			   <ZERO? <ZGET ,OOPS-TABLE ,O-PTR>>>
+		      <ZPUT ,OOPS-TABLE ,O-END <>>)>
+	       <COND (<IN? <LOC ,WINNER> ,ROOMS>
+		      ;<NOT <FSET? <LOC ,WINNER> ,VEHBIT>>
+		      <SETG HERE <LOC ,WINNER>>)>
+	       <COND (<OR <ZERO? ,LIT>
+			  <AND <NOT <EQUAL? ,HERE ,LIT>>
+			       <NOT <IN? ,LIT ,HERE>>
+			       <NOT <VISIBLE? ,LIT>>>>
+		      <SETG LIT <LIT? ;,HERE>>)>
+	       ;<FCLEAR ,IT  ,TOUCHBIT>	;"to prevent pronouns w/o referents"
+	       ;<FCLEAR ,HER ,TOUCHBIT>
+	       ;<FCLEAR ,HIM ,TOUCHBIT>
+	       ;<FCLEAR ,THEM ,TOUCHBIT>
+	       <COND (<BTST <LOWCORE FLAGS> ,F-REFRESH ;4>
+		      <V-$REFRESH>)>
+	       <COND (<NOT <0? ,VERBOSITY>> <CRLF>)>
+	       <COND (T ;<OR <CHECK-EXTENDED? XZIP>
+			     <CHECK-EXTENDED? YZIP>>
+		      <UPDATE-STATUS-LINE>)>
+	       <READ-INPUT>
+	       <COND (<AND <SET LEN <GETB ,P-LEXV ,P-LEXWORDS>>
+			   <SET N <INTBL? ,W?QUOTE
+					  <REST-TO-SLOT ,P-LEXV LEXV-START>
+					  .LEN *204*>>>
+		      <FIX-QUOTATIONS .LEN .N>)>
+	       <IFFLAG (<AND P-BE-VERB P-APOSTROPHE-BREAKS-WORDS>
+			<EXPAND-BE-CONTRACTIONS>)>
+	       <IF-P-TITLE-ABBRS
+		<COND (<AND <SET LEN <GETB ,P-LEXV ,P-LEXWORDS>>
+			    <INTBL? ,W?PERIOD
+				    <REST-TO-SLOT ,P-LEXV LEXV-START>
+				    .LEN *204*>>
+		       <FIX-TITLE-ABBRS .LEN>)>>
+	       <SETG P-LEN <GETB ,P-LEXV ,P-LEXWORDS>>
+	       <SETG TLEXV <REST-TO-SLOT ,P-LEXV LEXV-START>>)>
+	<COND (<EQUAL? <ZGET ,TLEXV 0>
+		       ,W?PERIOD ,W?THEN>	;"Is THEN first input word?"
+	       <SETG TLEXV <ZREST ,TLEXV <* 2 ,P-LEXELEN>>>;"If so, ignore it."
+	       <SETG P-LEN <- ,P-LEN 1>>)>
+	<COND (<EQUAL? <ZGET ,TLEXV 0> ,W?YOU>
+	       <IGNORE-FIRST-WORD ;,W?YOU>)>
+	<COND (<EQUAL? <ZGET ,TLEXV 0> ,W?GO ,W?TO>
+	       <IGNORE-FIRST-WORD ;,W?GO ;,W?TO>)>
+	<COND (<0? ,P-LEN>
+	       <BEG-PARDON>
+	       <RETURN <> .PARSER>)>
+	<COND	;"At this point, handle naked directions for speed."
+	   (<SET LEN <NAKED-DIR?>>
+	    <CLEAR-PSTACK ,STATE-STACK>
+	    <CLEAR-PSTACK ,DATA-STACK>
+	    ;<COND (<0? <WORD-CLASSIFICATION-NUMBER .LEN>>	;"synonym?"
+		   <SET LEN <WORD-SEMANTIC-STUFF .LEN>>)>
+	    <PUSH-PSTACK ,DATA-STACK .LEN>
+	    <RED-SD 1>
+	    <SETG P-CONT <>>
+	    <SETG P-OFLAG 0>
+	    <SETG P-WORDS-AGAIN 1>
+	    <ZPUT ,OOPS-TABLE ,O-END <>>
+	    <ZPUT ,OOPS-TABLE ,O-START ,TLEXV>
+	    ;<ZPUT ,OOPS-TABLE ,O-AGAIN <ZGET ,OOPS-TABLE ,O-START>>
+	    ;<SETG M-PTR <>>
+	    <PUTB ,P-LEXV ,P-LEXWORDS ,P-LEN>
+	    <COPYT ,P-LEXV ,G-LEXV ,LEXV-LENGTH-BYTES>
+	    <COPYT ,P-INBUF ,G-INBUF <+ 1 ,INBUF-LENGTH>>
+	    <PARSE-SUBJ ,PARSE-RESULT 0>
+	    <PARSE-VERB ,PARSE-RESULT ,W?WALK>
+	    <COND (<AND <L? 0 <SETG P-LEN <- ,P-LEN 1>>>
+			<SET LEN <ZGET <SETG TLEXV
+					<ZREST,TLEXV ,LEXV-ELEMENT-SIZE-BYTES>>
+				       0>>
+			<WORD-CLASSIFICATION-NUMBER .LEN <> LEN>
+			<COMPARE-WORD-TYPES .LEN
+					    <GET-CLASSIFICATION END-OF-INPUT>>>
+		   ;<SETG P-WORDS-AGAIN ,P-WORD-NUMBER> ;"swg 5/19/89"
+		   <COND (<NOT <L? <SETG P-LEN <- ,P-LEN 1>> 1>>
+			  <SETG P-CONT <ZREST ,TLEXV
+					      ,LEXV-ELEMENT-SIZE-BYTES>>)
+			 ;(T <SETG P-CONT <>>)>)>
+	    <RETURN T .PARSER>)
+	   (<==? <ZGET ,TLEXV 0> ,W?OOPS ,W?O>
+	    <COND (<NOT <DO-OOPS .OWINNER>>
+		   <RETURN <> .PARSER>)>)
+	   (<AND <ZERO? ,P-OFLAG>
+		 <L? ,P-CONT 1>>
+	    <ZPUT ,OOPS-TABLE ,O-END <>>)>
+	  <SETG P-CONT <>>
+	  <COND (<EQUAL? <ZGET ,TLEXV 0> ,W?AGAIN ,W?G>
+		 <COND (<NOT <DO-AGAIN .OWINNER>>
+			<RETURN <> .PARSER>)>)
+		(T
+		 ;<SETG M-PTR <>>
+		 <PUTB ,P-LEXV ,P-LEXWORDS ,P-LEN>
+		 <COPYT ,P-LEXV ,G-LEXV ,LEXV-LENGTH-BYTES>
+		 <COPYT ,P-INBUF ,G-INBUF <+ 1 ,INBUF-LENGTH>>
+		 <ZPUT ,OOPS-TABLE ,O-START ,TLEXV>
+		 <ZPUT ,OOPS-TABLE ,O-LENGTH ,P-LEN>
+		 ;<ZPUT ,OOPS-TABLE ,O-AGAIN ,TLEXV>
+		 <COND (<ZERO? <ZGET ,OOPS-TABLE ,O-END>>
+			<SET LEN <* <* 2 ,P-LEXELEN:FIX>
+				    <GETB ,P-LEXV ,P-LEXWORDS>>>
+			<ZPUT ,OOPS-TABLE ,O-END
+			      <+ <GETB ,TLEXV <SET LEN <- .LEN 1>>>
+				 <GETB ,TLEXV <SET LEN <- .LEN 1>>>>>)>)>
+	  <SETG P-WON <>>
+	  <SETG P-WALK-DIR <>>
+       <PROG ((PV <PARSE-IT <>>))
+	  <COND
+	   (<ZERO? .PV>
+	    <SET PV <PRINT-PARSER-FAILURE>>
+	    <AGAIN>)
+	   (<1? .PV>
+	    <RETURN <> .PARSER>)
+	   (T
+	    <ZPUT ,OOPS-TABLE ,O-PTR <>>
+	    <SETG PRSA <PARSE-ACTION .PV>> ;"SWG 30-Mar-89"
+	    <COND (<NOT <GAME-VERB?>>
+		   <SETG P-OFLAG 0>)>
+	    <IF-P-PS-ADV
+	    <COND (<AND <EQUAL? <SET LEN <PARSE-ADV .PV>> ,W?TWICE ,W?THRICE>
+			<SET N <INTBL? .LEN
+				       <ZGET ,OOPS-TABLE ,O-START>
+				       ,P-WORDS-AGAIN
+				       *204*>>>
+		   <CHANGE-LEXV .N ,W?ONCE>	;"to avoid repeating"
+		   <DO-IT-AGAIN <COND (<EQUAL? .LEN ,W?THRICE> 2) (T 1)>>
+		   <SET PV <PARSE-IT <>>>
+		   <AGAIN>)>
+	    <IF-P-ZORK0
+	    <COND (<EQUAL? .LEN ,W?DON\'T>
+		   <COND (<EQUAL? ,WINNER ,EXECUTIONER>
+			  <PRINT
+"\"Tell me what you want me to do, not what you don't.\"">)
+			 (T
+			  <PRINT "[Not done.]">)>
+		   <CRLF>
+		   <RETURN <> .PARSER>)>>>
+	    <COND (<T? <ZGET ,GWIM-MSG 1>>
+		   <TELL-GWIM-MSG>
+		   <ZPUT ,GWIM-MSG 1 0>)>
+	    <COND (<T? <ZGET ,GWIM-MSG 2>>
+		   <TELL "[\"">
+		   <NP-PRINT <ZGET ,GWIM-MSG 2>> ;"e.g. SOUTH DOOR"
+		   <TELL "\" meaning ">
+		   <TELL-THE <ZGET ,GWIM-MSG 3>>
+		   <TELL "]|">
+		   <ZPUT ,GWIM-MSG 2 0>)>
+	    <RETURN T .PARSER>)>>>
+
+<IF-P-TITLE-ABBRS
+<DEFINE FIX-TITLE-ABBRS (L)
+ <REPEAT ((PTR <REST-TO-SLOT ,P-LEXV LEXV-START>)
+	  ;(L <GETB ,P-LEXV ,P-LEXWORDS>))
+	<COND (<DLESS? L 0>
+	       <RETURN>)
+	      (<AND <TITLE-ABBR? <ZGET .PTR 0>>
+		    <EQUAL? ,W?PERIOD <ZGET .PTR ,LEXV-ELEMENT-SIZE>>
+		    <CAPITAL-NOUN? <ZGET .PTR <* 2 ,LEXV-ELEMENT-SIZE>>>>
+	       <ZPUT .PTR ,LEXV-ELEMENT-SIZE ,W?NO.WORD>
+	       ;<COND (<CAPITAL-NOUN? <ZGET<BACK .PTR ,LEXV-ELEMENT-SIZE-BYTES>
+					   0>>
+		      ;"JOHN D. FLATHEAD = JOHN FLATHEAD?"
+		      <ZPUT .PTR 0 ,W?NO.WORD>)>)>
+	<SET PTR <+ .PTR ,LEXV-ELEMENT-SIZE-BYTES>>>>>
+
+<DEFAULT-DEFINITION GAME-VERB?
+<CONSTANT GAME-VERB-TABLE
+ <LTABLE V?BRIEF V?QUIT V?RESTART V?RESTORE
+	 V?SAVE V?SCORE V?SCRIPT V?SUPER-BRIEF
+	 V?TELL V?UNSCRIPT V?VERBOSE V?VERSION V?$VERIFY>>
+
+<DEFINE GAME-VERB? ()
+ <COND (<INTBL? ,PRSA <ZREST ,GAME-VERB-TABLE 2> <ZGET ,GAME-VERB-TABLE 0>>
+	<RTRUE>)>
+ <COND (<VERB? $RANDOM $COMMAND $RECORD $UNRECORD>
+	<RTRUE>)>>>
+
+<DEFINE RED-SD ("OPT" N:FIX TYP:FIX "AUX" V SYN)
+	;"<SYNTAX WALK OBJECT ...> must be first one-object action for WALK!"
+	<SET V <PARSE-VERB ,PARSE-RESULT>>
+	<SET SYN <WORD-VERB-STUFF ,W?WALK>>
+	<COND (<OR <ZERO? .V>
+		   <NOT <EQUAL? .SYN <WORD-VERB-STUFF .V>>>>
+	       <PARSE-VERB ,PARSE-RESULT <SET V ,W?WALK>>)>
+	<SET SYN <IF-MUDDLE <CHTYPE <ZREST .VA 2> VERB-SYNTAX>
+			    <ZREST <VERB-ONE <WORD-VERB-STUFF .V>> 2>>>
+	<PARSE-SYNTAX ;3 ,PARSE-RESULT .SYN>
+	<PARSE-ACTION ;4 ,PARSE-RESULT <SYNTAX-ID .SYN>>
+	<PARSE-PARTICLE1 ,PARSE-RESULT <>>
+	<SETG P-WALK-DIR <WORD-DIR-ID <POP-PSTACK ,DATA-STACK>>>
+	;<SETG PRSO ,P-WALK-DIR>
+	<PARSE-OBJ1 ,PARSE-RESULT <PMEM-ALLOC NOUN-PHRASE
+				    COUNT 1
+				    LENGTH ,NOUN-PHRASE-MIN-LENGTH
+				    OBJ1 ,P-WALK-DIR>>
+	T>
+
+"Take the input list, and return a list of possible parses"
+
+<IFFLAG (P-DEBUGGING-PARSER
+	 <GLOBAL SPLITS:NUMBER 0>
+	 <DEFINE P-P (X)
+		 <COND (<PMEM? .X>
+			<COND (<PMEM-TYPE? .X ADJS>	;1
+			       <PRINTI "#ADJS[">
+			       <ADJS-PRINT .X>
+			       <PRINTI "]">)
+			      (<PMEM-TYPE? .X NP>	;2
+			       <PRINTI "#NP[">
+			       <NP-PRINT .X>
+			       <PRINTI "]">)
+			      (<PMEM-TYPE? .X NPP>	;3
+			       <PRINTI "#NPP[">
+			       <REPEAT ()
+				<COND (<NPP-NOUN .X>
+				       <P-P <NPP-NOUN .X>>
+				       <PRINTI " ">)>
+				<COND (<NPP-NOUN-PHRASE .X>
+				       <P-P <NPP-NOUN-PHRASE .X>>
+				       <PRINTI " ">)>
+				<COND ;(T
+				       <P-P <NPP-NEXT .X>>
+				       ;<PRINTI " ">)
+				      (<NOT <SET X <NPP-NEXT .X>>>
+				       <RETURN>)>>
+			       <PRINTI "]">)
+			      (<PMEM-TYPE? .X NOUN-PHRASE>	;4
+			       <PRINTI "#NOUN-PHRASE[">
+			       <NP-PRINT .X>
+			       <PRINTI "]">)
+			      (<OR <PMEM-TYPE? .X PP>	;5
+				   <PMEM-TYPE? .X LOCATION>	;6>
+			       <PRINTI "#PP[">
+			       <PRINTI "W?">
+			       <PRINTB <PP-PREP .X>>
+			       <PRINTI " ">
+			       <P-P <PP-NOUN .X>>
+			       <PRINTI "]">)
+			      ;(<PMEM-TYPE? .X OBJLIST>	;7
+			       <PRINTI "#OBJLIST[">
+			       <>
+			       <PRINTI "]">)
+			      (T <PRINTI "#PMEM[]">)>)
+		       (<EQUAL? .X ,PARSE-RESULT>
+			<PRINTI "RESULT">)
+		       (<OR <AND ;<L? 0 ,VOCAB>
+				 <L? ,VOCAB ,PRSTBL>
+				 <AND <L? ,VOCAB .X>
+				      <L? .X ,PRSTBL>>>
+			    <AND <L? 0 ,VOCAB>
+				 <L? ,PRSTBL 0>
+				 <OR <L? ,VOCAB .X>
+				     <L? .X ,PRSTBL>>>>
+			<PRINTI "W?">
+			<PRINTB .X>)
+		       (T <PRINTN .X>)>>)
+	(T
+	 <GDECL (SPLITS) FIX>)>
+
+<CONSTANT PARSE-RESULT <MAKE-PARSE-RESULT>>
+<GLOBAL P-WORD-NUMBER:NUMBER ;BYTE 0>
+<GLOBAL P-WORDS-AGAIN:NUMBER ;BYTE 0>
+<GLOBAL P-OLEN:NUMBER 0>
+
+<DEFINE PARSE-IT PI ("OPT" (V:<OR FALSE PARSE-RESULT> <>)
+		     "AUX" RES:FIX (NUM 0))
+ <IFFLAG (P-DEBUGGING-PARSER
+	  <SETG SPLITS 0>)
+	 (T
+	  <DEBUG20 <SETG SPLITS 0>>)>
+ <PSTACK-PTR ,SPLIT-STACK 0>
+ <SETG ERROR-PRIORITY 255>
+ <ZPUT ,ERROR-ARGS 1 0>
+ <SETG P-OLEN ,P-LEN>
+ <SETG OTLEXV ,TLEXV>
+ <REPEAT ((W ,WINNER) (SAV-LEXV ,TLEXV))
+     <SET NUM <+ 1 .NUM>>
+     <IF-P-DEBUGGING-PARSER
+      <COND (<T? ,P-DBUG>
+	     <PRINTI "[PASS ">
+	     <PRINTN .NUM>
+	     <PRINTI "]|">)>>
+     <BE-PATIENT .NUM>
+     <CLEAR-PSTACK ,STATE-STACK>
+     <PUSH-PSTACK ,STATE-STACK 1>
+     <CLEAR-PSTACK ,DATA-STACK>
+     <IF-P-DEBUGGING-PARSER
+      <COND (<T? ,P-DBUG>
+	     <PRINTI "[Reset of PMEM: ">
+	     <PRINTN ,PMEM-WORDS-USED>
+	     <PRINTI " words used.]|">)>>
+     <PMEM-RESET ;<>>
+     <SETG P-WORD-NUMBER 0>
+     <SETG TLEXV .SAV-LEXV>
+     <SETG P-LEN ,P-OLEN>
+     <SETG WINNER .W>
+     <COPYT ,GWIM-MSG 0 8>
+     ;<ZPUT ,GWIM-MSG 0 0>
+     ;<ZPUT ,GWIM-MSG 1 0>
+     ;<ZPUT ,GWIM-MSG 2 0>
+     ;<ZPUT ,GWIM-MSG 3 0>
+     ;<ZPUT ,ERROR-ARGS 1 0>
+     <COPYT ,PARSE-RESULT 0 ,PARSE-RESULT-LEN>
+     ;<MAKE-PARSE-RESULT 'PARSE-RESULT ,PARSE-RESULT>
+     ;<MAKE-PARSE-RESULT 'PARSE-RESULT ,PARSE-RESULT
+			'PARSE-VERB <COND (.V <PARSE-VERB .V>)>
+			'PARSE-OBJ1 <COND (.V <PARSE-OBJ1 .V>)>
+			'PARSE-LOC <COND (.V <PARSE-LOC .V>)>
+			'PARSE-QW <COND (.V <PARSE-QW .V>)>
+			'PARSE-ADJ <COND (.V <PARSE-ADJ .V>)>
+			'PARSE-SUBJ <COND (.V <PARSE-SUBJ .V>)>
+			'PARSE-QUERY <COND (.V <PARSE-QUERY .V>)>>
+     <SET RES <PARSE-SENTENCE ,PARSE-RESULT>>
+     <COND (<==? .RES ,PARSER-RESULT-AGAIN>
+	    <PSTACK-PTR ,SPLIT-STACK 0>
+	    <SETG ERROR-PRIORITY 255>
+	    <SETG P-OLEN ,P-LEN>
+	    <SET SAV-LEXV ,TLEXV ;<REST-TO-SLOT ,P-LEXV LEXV-START>>
+	    <AGAIN>)
+	   (<NOT <L? .RES ,PARSER-RESULT-WON>>
+	    <RETURN>)
+	   (<OR <0? <PSTACK-PTR ,SPLIT-STACK>>
+		<==? .RES ,PARSER-RESULT-DEAD>>
+	    ;"DEAD means unknown word or something else
+	      that couldn't be recovered by trying some other path"
+	    <RETURN>)>
+     ;"In case of partial success, anything saved has to be in orphan stuff"
+     <REPEAT (TMP TV T2)
+	<SET T2 <PSTACK-PTR ,SPLIT-STACK>>
+	<COND (<NOT <0? <ANDB <SET TV <ZGET ,SPLIT-STACK <- .T2 1>>> *177400*>>>
+	       ;"Test to distinguish between tables and numbers.
+		 In this case, TMP is a terminal state, possibly rested
+		 a bit.  The other element is the WCN of the word that
+		 caused the split, possibly with some bits turned off."
+	       <IF-SHORT
+		<SET TV <GET-TERMINAL-ACTION <ZGET ,SPLIT-STACK .T2>
+					     <ZREST .TV 4>
+					     0>>
+		<COND (<0? <ANDB <SET TMP <ZGET ,SPLIT-STACK .T2>> *100000*>>
+		       <SET TV <GET-TERMINAL-ACTION .TMP
+						    <ZREST .TV 6>
+						    1>>)
+		      (T
+		       <SET TV <GET-TERMINAL-ACTION <ANDB .TMP *77777*>
+						    <ZREST .TV 6>
+						    0>>)>>
+	       <COND (<NOT .TV>
+		      ; "Through with this case"
+		      <PSTACK-PTR ,SPLIT-STACK <SET T2 <- .T2 2>>>)
+		     (T
+		      <ZPUT ,SPLIT-STACK <- .T2 1> .TV>
+		      <RETURN>)>)
+	      (<==? <SET TMP <ZGET ,SPLIT-STACK .T2>> .TV>
+	       ;"Through with this case"
+	       <PSTACK-PTR ,SPLIT-STACK <SET T2 <- .T2 2>>>)
+	      (T
+	       <ZPUT ,SPLIT-STACK .T2 <+ 1 .TMP>>
+	       <RETURN>)>
+	<COND (<0? .T2>
+	       <RETURN>)>>
+     <COND (<0? <PSTACK-PTR ,SPLIT-STACK>>
+	    <RETURN>)>
+     <IF-P-DEBUGGING-PARSER
+       <COND (<T? ,P-DBUG>
+	      <PRINTI "[Splits left (SPLIT ptr = ">
+	      <PRINTN <PSTACK-PTR ,SPLIT-STACK>>
+	      <PRINTI "), trying again...]|">)>>>
+ <COND (<T? ,P-RESPONDED>
+	<BE-PATIENT <- 0 .NUM>>)>
+ <COND (<==? .RES ,PARSER-RESULT-WON> ,PARSER-RESULT)
+       (<==? .RES ,PARSER-RESULT-DEAD> 1)>>
+
+<GLOBAL P-RUNNING:TABLE <>>
+<GLOBAL PARSE-SENTENCE-ACTIVATION <>>
+
+<DEFINE PARSE-SENTENCE PS
+	(PR:PARSE-RESULT
+	 "AUX" (SPLIT-NUM:FIX -1) RES WCN ;"Shared var to keep locals below 16"
+	       (CURRENT-TOKEN <LEXV-WORD ,TLEXV>) OLD-WCN)
+   <SETG PARSE-SENTENCE-ACTIVATION <CATCH>>	;"for orphaning"
+   <COND (<F? .CURRENT-TOKEN>
+	  <COND (<NOT <SET CURRENT-TOKEN <UNKNOWN-WORD ,TLEXV>>>
+		 <RETURN ,PARSER-RESULT-DEAD .PS>)>)>
+   <IF-P-DEBUGGING-PARSER
+    <COND (<T? ,P-DBUG>
+	   <PRINTI "[Next token: ">
+	   <PRINTB .CURRENT-TOKEN>
+	   <PRINTI "; WCN ">
+	   <PRINTN <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN>>
+	   <PRINTI "]|">)>>
+   <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN <> WCN>
+   <SET OLD-WCN .WCN>
+   <REPEAT (CAV OFFS T2)
+     <COND <IF-P-APOSTROPHE-BREAKS-WORDS
+	   (<AND <EQUAL? .CURRENT-TOKEN ,W?S>
+		 <EQUAL? <ZGET <ZBACK ,TLEXV ,LEXV-ELEMENT-SIZE-BYTES> 0>
+			 ,W?APOSTROPHE>>
+	    <SET WCN <SET OLD-WCN <GET-CLASSIFICATION MISCWORD>>> ;"for possessives")>
+	   ;(<EQUAL? .CURRENT-TOKEN ,W?NO.WORD>
+	    <SET WCN 0>)		;"interferes with SAY 'VERB'"
+	   ;(T
+	    <SET WCN <SET OLD-WCN <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN>>>
+	    ;<IFFLAG (P-ZORK0
+		     <SET WCN <GETB .CURRENT-TOKEN 8>>
+		     <COND (<BAND .WCN 128>
+			    <SET WCN <SHIFT <BAND .WCN 127> 7>>)>)
+		    (T
+		     <SET WCN <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN>>)>)>
+     <COND
+      (<0? .WCN>
+       <COND (<F? <WORD-SEMANTIC-STUFF .CURRENT-TOKEN>>
+	      <COND (<BUZZER-WORD? .CURRENT-TOKEN ,TLEXV>
+		     <ZPUT ,OOPS-TABLE ,O-PTR
+			   <+ <* ,P-LEXELEN ,P-WORD-NUMBER> ,P-LEXSTART>>
+		     <RETURN ,PARSER-RESULT-DEAD .PS>)>
+	      <SET CAV <>>	;"A buzzword, so skip over it")
+	     (T
+	      <SET CURRENT-TOKEN <WORD-SEMANTIC-STUFF .CURRENT-TOKEN>>
+	      <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN <> OLD-WCN>
+	      <SET WCN .OLD-WCN>
+	      <AGAIN>		;"a synonym")>)
+      (T
+       <IF-SHORT <SET OFFS 0>
+		 <COND (<0? <ANDB .OLD-WCN *100000*>> <SET OFFS 1>)
+		       (T <SET OFFS 0>)>>
+       <COND
+	(<AND <SET CAV <GET-TERMINAL-ACTION
+			.WCN
+			<ZGET <ZGET ,ACTION-TABLE <PEEK-PSTACK ,STATE-STACK>>
+			      0>
+			.OFFS>>
+	      <NOT <0? <ANDB .WCN *77777* <XORB <ZGET .CAV .OFFS> -1>>>>
+	      <GET-TERMINAL-ACTION .WCN
+				   <ZREST .CAV <IF-SHORT 4 6>> .OFFS>>
+	 ;"The case we found didn't cover all cases.  TMP is the extras."
+	 <COND (<G? <+ <SET SPLIT-NUM <+ .SPLIT-NUM 2>> 1>
+		    <SET T2 <PSTACK-PTR ,SPLIT-STACK>>>
+		;"New split"
+		<IFFLAG (P-DEBUGGING-PARSER
+			 <SETG SPLITS <+ ,SPLITS 1>>)
+			(T
+			 <DEBUG20 <SETG SPLITS <+ ,SPLITS 1>>>)>
+		<SET T2 <+ 1 .T2>>
+		<COND (<G=? .T2 ,MAX-PSTACK-SIZE>
+		       <P-NO-MEM-ROUTINE>)>
+		<PSTACK-PTR ,SPLIT-STACK .T2>
+		<ZPUT ,SPLIT-STACK .T2 .CAV>
+		;"Save the cases covered by the first thing found"
+		<SET T2 <+ 1 .T2>>
+		<COND (<G=? .T2 ,MAX-PSTACK-SIZE>
+		       <P-NO-MEM-ROUTINE>)>
+		<PSTACK-PTR ,SPLIT-STACK .T2>
+		<IF-SHORT <ZPUT ,SPLIT-STACK .T2 .WCN>
+			  <ZPUT ,SPLIT-STACK .T2 <ORB <ANDB .OLD-WCN *100000*> .WCN>>>
+		<IF-P-DEBUGGING-PARSER
+		  <COND (<T? ,P-DBUG>
+			 <PRINTI "[New split on a">
+			 <PRINTI " word">
+			 <PRINTI " (split #">
+			 <PRINTN ,SPLITS>
+			 <PRINTI ") at depth ">
+			 <PRINTN </ .T2 2>>
+			 <PRINTI "; word class: ">
+			 <PRINTN .WCN>
+			 <PRINTI "; left: ">
+			 <PRINTN <ANDB <ANDB .WCN *77777*> <XORB <ZGET .CAV .OFFS> -1>>>
+			 <PRINTI ".]|">)>>)
+	       (T
+		;"Old split"
+		<COND (<SET CAV <ZGET <ZREST ,SPLIT-STACK 2> <- .SPLIT-NUM 1>>>
+		       <IF-P-DEBUGGING-PARSER
+			<COND (<T? ,P-DBUG>
+			       <PRINTI "[Old split on a word (split #">
+			       <PRINTN ,SPLITS>
+			       <PRINTI ") at depth ">
+			       <PRINTN </ .T2 2>>
+			       <PRINTI "; word class: ">
+			       <PRINTN .WCN>
+			       <PRINTI "; using: ">)>>
+		       ;<SET CAV <GET-TERMINAL-ACTION .WCN .CAV .OFFS>>
+		       <IF-P-DEBUGGING-PARSER
+			<COND (<T? ,P-DBUG>
+			       <COND (.CAV
+				      <PRINTN <ANDB .WCN *77777* <ZGET .CAV .OFFS>>>)
+				     (T <PRINTN 0>)>
+			       <PRINTI "]|">)>>)>
+		;<ZPUT <ZREST ,SPLIT-STACK 2> <- .SPLIT-NUM 1> .CAV>)>)>
+       <COND (<NOT .CAV>
+	      <IF-P-DEBUGGING-PARSER
+	       <COND (<T? ,P-DBUG> <PRINTI "[A parse loses.]|">)>>
+	      <RETURN ,PARSER-RESULT-FAILED .PS>)>
+       ; "Per taa 3/17/89.  Remember what part of speech we think this is"
+       <IF-P-DEBUGGING-PARSER
+	<COND (<AND ,P-DBUG <NOT <0? <ANDB .WCN *77777* <XORB <ZGET .CAV .OFFS> -1>>>>>
+	       <PRINTI "[Current WCN is ">
+	       <PRINTN <ANDB .WCN <ZGET .CAV .OFFS>>>
+	       <PRINTI "]">
+	       <CRLF>)>>
+       <SET WCN <ANDB .WCN <ZGET .CAV .OFFS>>>)>
+     <PROG
+	((CURRENT-ACTION:<OR FALSE TABLE FIX>
+	  <AND .CAV <IF-SHORT <ZGET .CAV 1> <ZGET .CAV 2>>>))
+	<COND
+	 (<AND .CAV <TABLE? .CURRENT-ACTION>>
+	  <COND (<G? <+ <SET SPLIT-NUM <+ .SPLIT-NUM 2>> 1>
+		     <SET T2 <PSTACK-PTR ,SPLIT-STACK>>>
+		 <IFFLAG (P-DEBUGGING-PARSER
+			  <SETG SPLITS <+ ,SPLITS 1>>)
+			 (T
+			  <DEBUG-CHECK <SETG SPLITS <+ ,SPLITS 1>>>)>
+		 <SET T2 <+ 1 .T2>>
+		 <COND (<G=? .T2 ,MAX-PSTACK-SIZE>
+			<P-NO-MEM-ROUTINE>)>
+		 <PSTACK-PTR ,SPLIT-STACK .T2>
+		 <ZPUT ,SPLIT-STACK .T2 <GETB .CURRENT-ACTION 0>>
+		 <SET T2 <+ 1 .T2>>
+		 <COND (<G=? .T2 ,MAX-PSTACK-SIZE>
+			<P-NO-MEM-ROUTINE>)>
+		 <PSTACK-PTR ,SPLIT-STACK .T2>
+		 <ZPUT ,SPLIT-STACK .T2 1>
+		 <IF-P-DEBUGGING-PARSER
+		  <COND (<T? ,P-DBUG>
+			 <PRINTI "[New split on a">
+			 <PRINTI "n action">
+			 <PRINTI " (split #">
+			 <PRINTN ,SPLITS>
+			 <PRINTI ") at depth ">
+			 <PRINTN </ .T2 2>>
+			 <PRINTI ", ">
+			 <PRINTN <GETB .CURRENT-ACTION 0>>
+			 <PRINTI " cases.]|">)>>
+		 <SET CURRENT-ACTION <GETB .CURRENT-ACTION 1>>)
+		(T
+		 <SET CURRENT-ACTION
+		      <GETB .CURRENT-ACTION <ZGET <ZREST ,SPLIT-STACK 2>
+						  .SPLIT-NUM>>>)>
+	  <IF-P-DEBUGGING-PARSER
+	    <COND (<T? ,P-DBUG>
+		   <PRINTI "[Using action ">
+		   <PRINTN .CURRENT-ACTION>
+		   <PRINTI ".]|">)>>)
+	 (<AND .CAV <NOT .CURRENT-ACTION>>
+	  ;"error"
+	  <IF-P-DEBUGGING-PARSER
+	   <COND (<T? ,P-DBUG> <PRINTI "[A parse loses.]|">)>>
+	  <RETURN ,PARSER-RESULT-FAILED .PS>)>
+	<COND
+	 (<OR <NOT .CAV> <L? .CURRENT-ACTION ,ACTION-SPLIT>>
+	  ;"shift"
+	  <COND (.CAV
+		 <IF-P-DEBUGGING-PARSER
+		  <COND (<T? ,P-DBUG>
+			 <PRINTI "[Pushing: ">
+			 <PRINTB .CURRENT-TOKEN>
+			 <PRINTI "; new state ">
+			 <PRINTN .CURRENT-ACTION>
+			 <PRINTI "]|">)>>
+		 <COND (<AND <PUSH-PSTACK ,DATA-STACK .CURRENT-TOKEN>
+			     <PUSH-PSTACK ,STATE-STACK .CURRENT-ACTION>>
+			T)
+		       (T <P-NO-MEM-ROUTINE>)>)>
+	  <COND (<L? <SETG P-LEN <- ,P-LEN 1>> 1>
+		 <SET CURRENT-TOKEN ,W?END.OF.INPUT>
+		 <SETG P-WORDS-AGAIN <+ 1 ,P-WORD-NUMBER>>
+		 <SETG P-CONT <>>
+		 <SETG P-LEN 0>)
+		(T
+		 <SETG P-WORD-NUMBER <+ ,P-WORD-NUMBER 1>>
+		 <SET CURRENT-TOKEN
+		      <LEXV-WORD <SETG TLEXV
+				       <ZREST ,TLEXV
+					     ,LEXV-ELEMENT-SIZE-BYTES>>>>
+		 <COND (<G? ,TLEXV ,OTLEXV>
+			<SETG OTLEXV ,TLEXV>)>)>
+	  <COND (<F? .CURRENT-TOKEN>
+		 <COND (<NOT <SET CURRENT-TOKEN <UNKNOWN-WORD ,TLEXV>>>
+			<RETURN ,PARSER-RESULT-DEAD .PS>)>)
+		(<EQUAL? .CURRENT-TOKEN ,W?THEN ,W?\! ,W?PERIOD ,W??>
+		 <SETG P-WORDS-AGAIN ,P-WORD-NUMBER>
+		 <COND (<NOT <L? <SETG P-LEN <- ,P-LEN 1>> 1>>
+			<SETG P-CONT <ZREST ,TLEXV
+					    ,LEXV-ELEMENT-SIZE-BYTES>>)
+		       (T <SETG P-CONT <>>)>)>
+	  <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN <> OLD-WCN>
+	  <SET WCN .OLD-WCN>
+	  <IF-P-DEBUGGING-PARSER
+	   <COND (<T? ,P-DBUG>
+		  <PRINTI "[Next token: ">
+		  <PRINTB .CURRENT-TOKEN>
+		  <PRINTI "; WCN ">
+		  <PRINTN .WCN>
+		  <PRINTI "]|">)>>)
+	 (<G? .CURRENT-ACTION ,ACTION-SPLIT>
+	  ;"reduce"
+	  <PROG ((REDUCTION <ZGET ,REDUCTION-TABLE
+				  <- .CURRENT-ACTION ,REDUCTION-OFFSET>>))
+		<IF-P-DEBUGGING-PARSER
+		  <COND (<T? ,P-DBUG>
+			 <PRINTI "[Reducing ">
+			 <PRINT <REDUCTION-NAME .REDUCTION>>
+			 <CRLF>
+			 ;<ZAPPLY <REDUCTION-FUNCTION .REDUCTION>>
+			 <PRINTI "Args:">
+			 <REPEAT ((N <REDUCTION-SIZE .REDUCTION>))
+				 <COND (<DLESS? N 0>
+					<PRINTI " ...">
+					<RETURN>)>
+				 <PRINTC !\ >
+				 <P-P <PEEK-PSTACK ,DATA-STACK .N>>>)>>
+		<COND (<NOT <0? <SET RES <REDUCTION-SIZE .REDUCTION>>>>
+		       <FSTACK .RES ,STATE-STACK>
+		       ;<REPEAT ((N .RES))
+			       <COND (<DLESS? N 0>
+				      <RETURN>)>
+			       <POP-PSTACK ,STATE-STACK>>)>
+		;"The reduction function voids the warranty if it:
+		  Pops more or less than REDUCTION-SIZE elements off the
+		  data stack. [Fewer is OK if reduction returns false.]
+		  Modifies any of the objects on the stack (since COPY-PSTACK
+		  doesn't copy the objects."
+		<SETG CURRENT-REDUCTION .REDUCTION>
+		<SETG P-RUNNING ,TLEXV>
+		<SET RES
+		     <ZAPPLY <REDUCTION-FUNCTION .REDUCTION>
+			     <REDUCTION-SIZE .REDUCTION>
+			     ;<REDUCTION-RESULT .REDUCTION>>>
+		<SETG TLEXV ,P-RUNNING>
+		<COND (<G? ,TLEXV ,OTLEXV>
+		       <SETG OTLEXV ,TLEXV>)>
+		<COND (<L? ,P-LEN 1>
+		       <SET CURRENT-TOKEN ,W?END.OF.INPUT>
+		       <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN <> OLD-WCN>
+		       <SET WCN .OLD-WCN>)
+		      (<N==? .CURRENT-TOKEN <LEXV-WORD ,TLEXV>>
+		       <SET CURRENT-TOKEN <LEXV-WORD ,TLEXV>>
+		       <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN <> OLD-WCN>
+		       <SET WCN .OLD-WCN>)>
+		;<SET WCN <WORD-CLASSIFICATION-NUMBER .CURRENT-TOKEN>>
+		<SETG CURRENT-REDUCTION <>>
+		<COND (.RES
+		       <COND (<NOT <PUSH-PSTACK ,DATA-STACK .RES>>
+			      <P-NO-MEM-ROUTINE>)>)
+		      (T
+		       <RETURN ,PARSER-RESULT-FAILED .PS>)>
+		;"This assumes that the action in the table is a simple
+		  state transition.  If not, it's a bug in the table
+		  generator."
+		<COND (<NOT <PUSH-PSTACK ,STATE-STACK
+			     <GET-NONTERMINAL-ACTION
+				<ZGET ,ACTION-TABLE <PEEK-PSTACK ,STATE-STACK>>
+				<REDUCTION-RESULT .REDUCTION>>>>
+		       <P-NO-MEM-ROUTINE>)>
+		<IF-P-DEBUGGING-PARSER
+		  <COND (<T? ,P-DBUG>
+			 <PRINTI " result: ">
+			 <P-P .RES>
+			 <PRINTI ", new state ">
+			 <PRINTN <PEEK-PSTACK ,STATE-STACK>>
+			 <PRINTI "]|">)>>>)
+	 (T
+	  ;"ACTION-SPLIT-->done"
+	  <SETG PARSER-RESULT <POP-PSTACK ,DATA-STACK>>
+	  <RETURN ,PARSER-RESULT-WON .PS>)>>>>
+
+<DEFINE GET-TERMINAL-ACTION GTA (TYPE:FIX
+			         STATE:<OR <TABLE FIX> FALSE>
+			         OFFS:FIX)
+  <COND (.STATE
+	 <IF-SHORT T <SET TYPE <ANDB .TYPE *77777*>>>
+	 <REPEAT ((V:<TABLE FIX> .STATE))
+	   <COND (<IF-SHORT <0? <ZGET .V 0>:FIX>
+			    <AND <0? <ZGET .V 0>:FIX>
+				 <0? <ZGET .V 1>:FIX>>>
+		  <RETURN <> .GTA>)>
+	   <COND (<NOT <0? <ANDB .TYPE <ZGET .V .OFFS>>>>
+		  <RETURN .V .GTA>)>
+	   <IF-SHORT <SET V <ZREST .V 4>>
+		     <SET V <ZREST .V 6>>>>)>>
+
+<DEFINE GET-NONTERMINAL-ACTION GNA (STATE:TABLE TYPE:FIX)
+  <COND (<ZGET .STATE 1>
+	 <REPEAT ((V:TABLE <ZGET .STATE 1>))
+	   <COND (<0? <GETB .V 0>:FIX>
+		  <RETURN <> .GNA>)
+		 (<==? <GETB .V 0>:FIX .TYPE>
+		  <RETURN <GETB .V 1> .GNA>)>
+	   <SET V <ZREST .V 2>>>)>>
+
+<GLOBAL P-RESPONDED:NUMBER 0>
+
+<DEFAULT-DEFINITION BE-PATIENT
+<DEFINE BE-PATIENT (NUM "AUX" (LIM 16))
+ <COND (<EQUAL? <LOWCORE INTID> ,APPLE-2E ,APPLE-2C ,APPLE-2GS>
+	<SET LIM 4>)>
+ <COND (<L? .NUM 0>
+	<IF-P-DEBUGGING-PARSER
+		<COND (<T? ,P-DBUG>
+		       <PRINTI "[Total: ">
+		       <PRINTN <- 0 .NUM>>
+		       <PRINTI " passes.]|">)>>
+	;<IF-P-ZORK0 <COND (,DEBUG <TELL "[For SWG: " N <- 0 .NUM> " passes.]|">)>>
+	<COND (<AND <L? .NUM <- 1 .LIM>>
+		    <T? ,P-RESPONDED>>
+	       <SETG P-RESPONDED 0>
+	       <BUFOUT T>
+	       <TELL "]" CR>)>)
+       (<ZERO? <MOD .NUM .LIM>>
+	<COND (<EQUAL? .NUM .LIM>
+	       <SETG P-RESPONDED .LIM>
+	       ;<BUFOUT <>>
+	       <TELL "[Please be patient...">)
+	      (<T? ,P-RESPONDED>
+	       <TELL ".">)>
+	<BUFOUT <>>		;"for Apple")>>>
+
+<DEFINE MAIN-LOOP ("AUX" X) <REPEAT () <SET X <MAIN-LOOP-1>>>>
+
+<DEFAULT-DEFINITION COLLECTIVE-VERB?
+	<DEFMAC COLLECTIVE-VERB? () '<VERB? COUNT ;COMPARE>>>
+
+<DEFAULT-DEFINITION DIR-VERB?
+	<DEFMAC DIR-VERB? () '<VERB? WALK>>>
+
+<DEFINE MAIN-LOOP-1 ACT ("AUX" ICNT OCNT NUM (OBJ <>) V OBJ1 (NP <>) NP1)
+   <COND (<SETG P-WON <PARSER>>
+	  <IFN-P-BE-VERB <COND (<L? <SETG P-ERRS <- ,P-ERRS 1>> 0>
+				<SETG P-ERRS 0>)>>
+	  <PROG ()
+	    <SETG PRSA <PARSE-ACTION ,PARSE-RESULT>>
+	    <IF-UNDO
+		<COND (<VERB? UNDO>
+		       <IF-P-BE-VERB
+			<SETG PRSS <>>
+			<SETG PRSQ <>>>
+		       <RETURN <PERFORM ,PRSA> .ACT>)
+		      (T
+		       <SETG P-CAN-UNDO <ISAVE>>
+		       <COND (<EQUAL? ,P-CAN-UNDO 2>
+			      <COND (<OR ;<T? ,P-CONT> <VERB? SAVE>>
+				     <CANT-UNDO>)
+				    (T
+				     <SETG P-CONT -1>
+				     <V-$REFRESH>
+				     ;<TELL "[Undone.]|">)>
+			      <RETURN <> .ACT>)>)>>
+	    <SETG P-PRSO <PARSE-OBJ1 ,PARSE-RESULT>>
+	    <SETG P-PRSI <PARSE-OBJ2 ,PARSE-RESULT>>
+	    <COND (<AND ,P-PRSO
+			<==? ,INTDIR <NOUN-PHRASE-OBJ1 ,P-PRSO>>>
+		   <SETG P-DIRECTION
+			 <WORD-DIR-ID
+			  <NP-NAME <NOUN-PHRASE-NP1 ,P-PRSO>>>>)
+		  (<AND ,P-PRSI
+			<==? ,INTDIR <NOUN-PHRASE-OBJ1 ,P-PRSI>>>
+		   <SETG P-DIRECTION
+			 <WORD-DIR-ID
+			  <NP-NAME <NOUN-PHRASE-NP1 ,P-PRSI>>>>)>
+	    <SETG P-PRSA-WORD <PARSE-VERB ,PARSE-RESULT>>
+	    <SETG CLOCK-WAIT <>>
+	    <SET ICNT 0>
+	    <SET OCNT 0>
+	    <COND (,P-PRSI
+		   <SET ICNT <NOUN-PHRASE-COUNT ,P-PRSI>>
+		   <COND (<NOT <0? .ICNT>>
+			  <SETG P-MULT .ICNT>)>)>
+	    <COND (,P-PRSO
+		   <SET OCNT <NOUN-PHRASE-COUNT ,P-PRSO>>
+		   <COND (<NOT <0? .OCNT>> ;<NP-MULTI? ,P-PRSO>
+			  <SETG P-MULT .OCNT>)>)>
+	    <COND (<AND <ZERO? .OCNT> <ZERO? .ICNT>>
+		   T)
+		  (<AND <NOT <DIR-VERB?>>	;"? Is this necessary?"
+			<T? ,P-IT-OBJECT>>
+		   <COND (<T? .ICNT>
+			  <MAIN-LOOP-IT .ICNT ,P-PRSI>)>
+		   <COND (<T? .OCNT>
+			  <MAIN-LOOP-IT .OCNT ,P-PRSO>)>)>
+	    <SET NUM
+		 <COND (<0? .OCNT> .OCNT)
+		       (<G? .OCNT 1>
+			<COND (<0? .ICNT> <SET OBJ <>>)
+			      (T
+			       <SET OBJ <OR <NOUN-PHRASE-OBJ1 ,P-PRSI>
+					    ;,NOT-HERE-OBJECT>>
+			       <SET NP <NOUN-PHRASE-NP1 ,P-PRSI>>)>
+			.OCNT)
+		       (<G? .ICNT 1>
+			<SET OBJ <OR <NOUN-PHRASE-OBJ1 ,P-PRSO>
+				     ;,NOT-HERE-OBJECT>>
+			<SET NP <NOUN-PHRASE-NP1 ,P-PRSI>>
+			.ICNT)
+		       (T 1)>>
+	    <COND (<AND <ZERO? .OBJ> <1? .ICNT>>
+		   <SET OBJ <OR <NOUN-PHRASE-OBJ1 ,P-PRSI>
+				;,NOT-HERE-OBJECT>>
+		   <SET NP <NOUN-PHRASE-NP1 ,P-PRSI>>)>
+	    <COND (<AND <SET V <PARSE-CHOMPER ,PARSE-RESULT>>
+			<L? 1 <NOUN-PHRASE-COUNT .V>>
+			<ZERO? <NOUN-PHRASE-FLAGS .V>>
+			;<NOT <EQUAL? ,P-CONT -1>>>
+		   <NOUN-PHRASE-FLAGS .V 1>
+		   <TELL D <NOUN-PHRASE-OBJ1 .V> ":|">)>
+	    <IF-P-BE-VERB
+			<COND (<SET V <PARSE-QUERY-SYNTAX ,PARSE-RESULT>>
+			       <SETG PRSQ ;V <SYNTAX-ID .V>>)
+			      (T
+			       <SETG PRSQ <>>)>
+			<COND (<SET XX <PARSE-SUBJ ,PARSE-RESULT>>
+			       <SETG PRSS ;XX <NOUN-PHRASE-OBJ1 .XX>>)
+			      (T
+			       <SETG PRSS <>>)>
+			;<SET V <PERFORM ,PRSA ,PRSO ,PRSI ;.PI ;.V ;.XX>>>
+	    <COND (<AND <ZERO? ,LIT>
+			<SEE-VERB?>>
+		   <TELL-TOO-DARK>
+		   <SETG P-CONT -1>
+		   ;<RTRUE>)
+		  (<DIR-VERB?>
+		   <SET V <PERFORM ,PRSA <OR ,P-WALK-DIR
+					     <NOUN-PHRASE-OBJ1 ,P-PRSO>>>>)
+		  (<0? .NUM>
+		   <SET V <PERFORM ,PRSA>>
+		   <SETG PRSO <>>
+		   <SETG PRSO-NP <>>)
+		  (<AND ;<EQUAL? .OCNT 1>
+			<G? .OCNT ;.ICNT 1> ;<G? .NUM 1>
+			<COLLECTIVE-VERB?>>
+		   <SET V <PERFORM ,PRSA ,ROOMS>>)
+		  (T
+		   <REPEAT (XX (CNT -1) ;(X 0) (TMP 0) ;PI)
+		    <SET CNT <+ .CNT 1>>
+		    <COND (<G=? .CNT .NUM>
+			   <COND (<ZERO? .TMP>
+				  <MORE-SPECIFIC>)>
+			   <RETURN>)>
+		    <SET XX <+ ,NOUN-PHRASE-HEADER-LEN <* .CNT 2>>>
+		    <COND (<NOT <G? .ICNT 1>>
+			   <SET OBJ1 <ZGET ,P-PRSO .XX>>
+			   <SET NP1 <ZGET ,P-PRSO <+ 1 .XX>>>)
+			  (T
+			   <SET OBJ1 <ZGET ,P-PRSI .XX>>
+			   <SET NP1 <ZGET ,P-PRSI <+ 1 .XX>>>)>
+		    <COND (<OR <G? .NUM 1>
+			       <==? <NP-QUANT .NP1> ,NP-QUANT-ALL>>
+			   <COND (<NOT <PERF-MANY .OBJ1 .OBJ .NP1 ": ">>
+				  <AGAIN>)>)>
+		    <SET TMP T>
+		    <COND (<NOT <G? .ICNT 1>>
+			   <SETG PRSO .OBJ1>
+			   <SETG PRSO-NP .NP1>
+			   <SETG PRSI ;PI .OBJ>
+			   <SETG PRSI-NP .NP>)
+			  (T
+			   <SETG PRSO .OBJ>
+			   <SETG PRSO-NP .NP>
+			   <SETG PRSI ;PI .OBJ1>
+			   <SETG PRSI-NP .NP1>)>
+		    <COND (<AND <IFFLAG (P-BE-VERB
+					 <EQUAL? ,IT ,PRSI ,PRSO ,PRSS>)
+					(T
+					 <EQUAL? ,IT ,PRSI ,PRSO>)>
+				<NOT <FIX-HIM-HER-IT ,IT ,P-IT-OBJECT>>>
+			   <AGAIN>)>
+		    <COND (<AND <IFFLAG (P-BE-VERB
+					 <EQUAL? ,HER ,PRSI ,PRSO ,PRSS>)
+					(T
+					 <EQUAL? ,HER ,PRSI ,PRSO>)>
+				<NOT <FIX-HIM-HER-IT ,HER ,P-HER-OBJECT>>>
+			   <AGAIN>)>
+		    <COND (<AND <IFFLAG (P-BE-VERB
+					 <EQUAL? ,HIM ,PRSI ,PRSO ,PRSS>)
+					(T
+					 <EQUAL? ,HIM ,PRSI ,PRSO>)>
+				<NOT <FIX-HIM-HER-IT ,HIM ,P-HIM-OBJECT>>>
+			   <AGAIN>)>
+		    <COND (<AND <IFFLAG (P-BE-VERB
+					 <EQUAL? ,THEM ,PRSI ,PRSO ,PRSS>)
+					(T
+					 <EQUAL? ,THEM ,PRSI ,PRSO>)>
+				<NOT <FIX-HIM-HER-IT ,THEM ,P-THEM-OBJECT>>>
+			   <AGAIN>)>
+		    <QCONTEXT-CHECK ,PRSO>
+		    <COND (<T? ,PRSO>
+			   <SET XX <SYNTAX-SEARCH <PARSE-SYNTAX ,PARSE-RESULT> 1>>
+			   <IFN-P-ZORK0
+			    <COND (<TEST-ADJACENT ,PRSO .XX> ;"Could be ADJACENT room."
+				   <NOT-HERE ,PRSO>
+				   <AGAIN>)>>
+			   <COND (<AND <BAND .XX<BOR ,SEARCH-MUST-HAVE ,SEARCH-DO-TAKE>>
+				       <NOT <BAND ,SEARCH-MOBY .XX>>>
+				  <SET V <ITAKE-CHECK ,PRSO .XX>>
+				  <COND (<OR <EQUAL? ,M-FATAL .V>
+					     ;<EQUAL? ,P-CONT -1>>
+					 <RETURN>)
+					(<T? .V>
+					 <AGAIN>)>)>)>
+		    <COND (<T? ,PRSI ;.PI>
+			   <SET XX <SYNTAX-SEARCH <PARSE-SYNTAX ,PARSE-RESULT> 2>>
+			   <IFN-P-ZORK0
+			    <COND (<TEST-ADJACENT ,PRSI .XX> ;"Could be ADJACENT room."
+				   <NOT-HERE ,PRSI>
+				   <AGAIN>)>>
+			   <COND (<AND <BAND .XX<BOR ,SEARCH-MUST-HAVE ,SEARCH-DO-TAKE>>
+				       <NOT <BAND .XX ,SEARCH-MOBY>>>
+				  <SET V <ITAKE-CHECK ,PRSI ;.PI .XX>>
+				  <COND (<OR <EQUAL? ,M-FATAL .V>
+					     ;<EQUAL? ,P-CONT -1>>
+					 <RETURN>)
+					(<T? .V>
+					 <AGAIN>)>)>)>
+		    <SET V <PERFORM ,PRSA ,PRSO ,PRSI ;.PI>>
+		    <COND (<OR <EQUAL? ,M-FATAL .V>
+			       <EQUAL? ,P-CONT -1>>	;"per SEM 16-Feb-88"
+			   <RETURN>)>>)>
+	    <SETG OPRSO ,PRSO>
+	    <COND (<AND <ZERO? ,CLOCK-WAIT>
+			<NOT <GAME-VERB?>>
+			;<T? ,P-WON>>
+		   <COND (<AND <SET V <LOC ,WINNER>>
+			       <NOT <IN? .V ,ROOMS>>
+			       ;<FSET? .V ,VEHBIT>>
+			  <IFFLAG (P-DEBUGGING-PARSER
+				   <SET V <D-APPLY "M-END"
+						   <GETP .V ,P?ACTION>
+						   ,M-END>>)
+				  (T
+				   <SET V <ZAPPLY <GETP .V ,P?ACTION>
+						  ,M-END>>)>)>
+		   <IFFLAG (P-DEBUGGING-PARSER
+			    <SET V <D-APPLY "M-END"
+					    <GETP ,HERE ,P?ACTION>
+					    ,M-END>>)
+			   (T
+			    <SET V <ZAPPLY <GETP ,HERE ,P?ACTION> ,M-END>>)>
+		   <COND (<EQUAL? ,M-FATAL .V>
+			  <SETG P-CONT -1>)>
+		   <COND (T ;<AND <ZERO? ,CLOCK-WAIT>
+				  <NOT <GAME-VERB?>>
+				  ;<T? ,P-WON>>
+			  <SETG CLOCKER-RUNNING 1>
+			  <SET V <CLOCKER>>
+			  <SETG CLOCKER-RUNNING 2>
+			  <COND (<EQUAL? ,M-FATAL .V>
+				 <SETG P-CONT -1>)>)>)>
+	    <COND (<AND <SET V <PARSE-CHOMPER ,PARSE-RESULT>>
+			<L? 1 <NOUN-PHRASE-COUNT .V>>
+			<NOT <EQUAL? ,P-CONT -1>>>
+		   <SET V <HACK-TELL-1 .V>>
+		   <COND (<EQUAL? ,M-FATAL .V>
+			  <SETG P-CONT -1>)
+			 (<T? .V>
+			  <AGAIN>)>)>>)
+	 (T
+	  <SETG CLOCK-WAIT T>
+	  <SETG P-CONT <>>)>
+   <SETG PRSA <>>
+   <SETG PRSO <>>
+   <SETG PRSO-NP <>>
+   <SETG PRSI ;"PI" <>>>
+
+<DEFINE PERF-MANY (OBJ1 OBJ NP1 STR)
+   <COND (<EQUAL? .OBJ1 <> ,NOT-HERE-OBJECT>
+	  ;<SET X <+ .X 1>>
+	  <NP-PRINT .NP1>
+	  <TELL .STR>
+	  <NP-CANT-SEE .NP1>
+	  <RFALSE>)
+	 (<AND <==? <NP-QUANT .NP1> ,NP-QUANT-ALL>
+	       <NOT <VERB-ALL-TEST .OBJ1 .OBJ>>>
+	  <RFALSE>)
+	 (<NOT <ACCESSIBLE? .OBJ1>>
+	  <RFALSE>)
+	 (<EQUAL? .OBJ1 ,PLAYER>
+	  <RFALSE>)
+	 (T
+	  <COND (<EQUAL? .OBJ1 ,IT>	;"? others?"
+		 <TELL D ,P-IT-OBJECT>)
+		(<EQUAL? .OBJ1 ,PSEUDO-OBJECT>
+		 <NP-PRINT .NP1>)
+		(T <TELL D .OBJ1>)>
+	  <TELL .STR>
+	  T)>>
+
+<IFN-P-ZORK0
+<DEFINE TEST-ADJACENT (OBJ XX "AUX" LO LW)
+    <AND <T? .OBJ>
+	 <NOT <BTST .XX ,SEARCH-MOBY>>
+	 <NOT <BTST .XX <BOR ,SEARCH-MOBY ,SEARCH-MUST-HAVE>>>
+	 <SET LO <META-LOC .OBJ>>
+	 <IN? .LO ,ROOMS>
+	 <FSET? .LO ,TOUCHBIT> ;"PDL 5/24/89"
+	 <NOT <GLOBAL-IN? .OBJ <SET LW <META-LOC ,WINNER>>>>
+	 <NOT <EQUAL? .LO .LW>>>>>
+
+<DEFAULT-DEFINITION QCONTEXT-CHECK
+<DEFINE QCONTEXT-CHECK (PER "AUX" (WHO <>))
+	 <COND (<OR ;<IFFLAG (P-BE-VERB <VERB? BE ;FIND ;HELP>) (T <>)>
+		    <AND <VERB? SHOW TELL-ABOUT>
+			 <EQUAL? .PER ,PLAYER>>> ;"? more?"
+		<COND (<SET WHO <FIND-A-WINNER ,HERE>>
+		       <SETG QCONTEXT .WHO>)>
+		<COND (<AND <QCONTEXT-GOOD?>
+			    <EQUAL? ,WINNER ,PLAYER>> ;"? more?"
+		       <SETG WINNER ,QCONTEXT>
+		       <TELL-SAID-TO ,QCONTEXT>
+		       <RTRUE>)>)>>>
+
+<GLOBAL LIT:OBJECT <>>	"source of light, 0=dark"
+
+<DEFAULT-DEFINITION LIT?
+<DEFINE LIT? ("OPT" (RM ,HERE) (RMBIT T) "AUX" OHERE (LT <>))
+	;<COND (<NOT .RM> <SET RM ,HERE>)>
+	<SET OHERE ,HERE>
+	<SETG HERE .RM>
+	<COND (<AND .RMBIT
+		    <FSET? .RM ,ONBIT>>
+	       <SET LT ,HERE>)
+	      (<AND <FSET? ,WINNER ,ONBIT>
+		    <HELD? ,WINNER .RM>>
+	       <SET LT ,WINNER>)
+	      (T
+	       <FIND-RES-COUNT ,SEARCH-RES 0>
+	       <FIND-RES-NEXT ,SEARCH-RES <>>
+	       <FIND-APPLIC ,FINDER ,ONBIT>
+	       <FIND-FLAGS ,FINDER ,FIND-FLAGS-GWIM>
+	       ;<MAKE-FINDER 'FINDER ,FINDER
+			    'FIND-APPLIC ,ONBIT
+			    'FIND-RES ,SEARCH-RES
+			    'FIND-FLAGS ,FIND-FLAGS-GWIM>
+	       <COND (<EQUAL? .OHERE .RM>
+		      <FIND-DESCENDANTS ,WINNER
+			<BOR ,FD-INCLUDE? ,FD-SEARCH? ,FD-NEST? ;,FD-NOTOP?>;7>
+		      <COND (<AND <NOT <EQUAL? ,WINNER ,PLAYER>>
+				  <IN? ,PLAYER .RM>>
+			     <FIND-DESCENDANTS ,PLAYER
+			      <BOR ,FD-INCLUDE? ,FD-SEARCH? ,FD-NEST?
+				   ;,FD-NOTOP?> ;7>)>)>
+	       <COND (<0? <FIND-RES-COUNT ,SEARCH-RES>:FIX>
+		      <COND (<AND <NOT <IN? <LOC ,WINNER> ,ROOMS>>
+				  ;<FSET? <LOC ,WINNER> ,VEHBIT>
+				  <NOT <FSET? <LOC ,WINNER> ,OPENBIT>>>
+			     <FIND-DESCENDANTS <LOC ,WINNER>
+				<BOR ,FD-INCLUDE? ,FD-SEARCH? ,FD-NEST?
+				     ;,FD-NOTOP?> ;7>)>
+		      <FIND-DESCENDANTS .RM <BOR ,FD-INCLUDE? ,FD-SEARCH?
+						  ,FD-NEST? ;,FD-NOTOP?> ;7>)>
+	       <COND (<L? 0 <FIND-RES-COUNT ,SEARCH-RES>:FIX>
+		      <SET LT <FIND-RES-OBJ1 ,SEARCH-RES>>)>)>
+	<SETG HERE .OHERE>
+	.LT>>
+
+<DEFINE IGNORE-FIRST-WORD (;WD1 ;"OPT" ;(WD2 1) "AUX" NW)
+ <COND (<AND ;<EQUAL? <ZGET ,TLEXV 0> .WD1 .WD2> ;"Is this the first word ..."
+	     <L? 1 ,P-LEN>
+	     ;<L? <- ,TLEXV ,P-LEXV> <- ,LEXV-LENGTH-BYTES <* 2 ,P-LEXELEN>>>
+	     <SET NW <ZGET ,TLEXV ,P-LEXELEN>>
+	     <WORD-CLASSIFICATION-NUMBER .NW <> NW>	;" followed by verb?"
+	     <COMPARE-WORD-TYPES .NW <GET-CLASSIFICATION VERB>>>
+	<SETG TLEXV <ZREST ,TLEXV <* 2 ,P-LEXELEN>>>	;"If so, ignore it."
+	<SETG P-LEN <- ,P-LEN 1>>
+	T)>>
+
+<DEFINE FIX-QUOTATIONS (LEN PTR)
+ <REPEAT (X (QFLAG <>))
+	<COND (<NOT .QFLAG>
+	       <SET QFLAG T>
+	       <SET X <+ ,LEXV-ELEMENT-SIZE </ <- .PTR ,P-LEXV> 2>>>
+	       <MAKE-ROOM-FOR-TOKENS 1 ,P-LEXV .X>
+	       <ZPUT ,P-LEXV .X ,W?NO.WORD>)
+	      (T
+	       <SET QFLAG <>>)>
+	<SET PTR <+ .PTR ,LEXV-ELEMENT-SIZE-BYTES>>
+	<SET X </ <- .PTR ,P-LEXV> ,LEXV-ELEMENT-SIZE-BYTES>>
+	<SET LEN <- <GETB ,P-LEXV ,P-LEXWORDS> .X>>
+	<COND (<0? .LEN>
+	       <RETURN>)
+	      (<NOT <SET PTR <INTBL? ,W?QUOTE .PTR .LEN *204*>>>
+	       <RETURN>)>>>
+
+<DEFINE MAIN-LOOP-IT (ICNT PRS)
+	<REPEAT ((CNT 0) TOFF)
+		<SET TOFF <+ ,NOUN-PHRASE-HEADER-LEN <* .CNT 2>>>
+		<COND (<AND <==? ,IT <ZGET .PRS .TOFF>>
+			    <ACCESSIBLE? ,P-IT-OBJECT>>
+		       <ZPUT .PRS .TOFF ,P-IT-OBJECT>
+		       <TELL-PRONOUN ,P-IT-OBJECT ,IT>
+		       <RETURN>)
+		      (<G? <SET CNT <+ .CNT 1>> .ICNT>
+		       <RETURN>)>>>
+
+<DEFAULT-DEFINITION P-NO-MEM-ROUTINE
+<DEFINE P-NO-MEM-ROUTINE ("OPT" (TYP 0))
+	<PRINTI "[Sorry, but that">
+	<COND (<EQUAL? .TYP 7 ;OBJLIST>
+	       <PRINTI "'s too many objects">)
+	      (T
+	       <PRINTI " sentence is too complicated">)>
+	<PRINTI ".]|">
+	<THROW ,PARSER-RESULT-DEAD ,PARSE-SENTENCE-ACTIVATION>>>
+
+<DEFAULT-DEFINITION BEG-PARDON
+	<DEFINE BEG-PARDON () <TELL "[I beg your pardon?]" CR>>>
+
+<DEFAULT-DEFINITION UNKNOWN-WORD
+<DEFINE UNKNOWN-WORD (RLEXV "AUX" X)
+  <COND (<SET X <NUMBER? .RLEXV>>
+	 .X)
+	(T
+	 <TELL "[I don't know the word \"">
+	 <ZPUT ,OOPS-TABLE ,O-PTR </ <- .RLEXV ,P-LEXV> 2>>
+	 <WORD-PRINT .RLEXV>
+	 <TELL ".\"]" CR>
+	 <IFN-P-BE-VERB <COUNT-ERRORS 1>>
+	 <THROW ,PARSER-RESULT-DEAD ,PARSE-SENTENCE-ACTIVATION>)>>>
+
+<DEFINE WORD-PRINT (PTR "OPT" (LEN <LEXV-WORD-LENGTH .PTR>)
+			     (OFFS <LEXV-WORD-OFFSET .PTR>))
+  <REPEAT ()
+    <COND (<L? <SET LEN <- .LEN 1>> 0> <RETURN>)
+	  (T
+	   <TELL C <GETB ,P-INBUF .OFFS>>
+	   <SET OFFS <+ .OFFS 1>>)>>>
+
+<IFFLAG (LONG-WORDS
+<DEFINE PRINT-VOCAB-WORD (WD "AUX" TMP)
+	<COND (<SET TMP <INTBL? .WD <ZREST ,LONG-WORD-TABLE 2>
+				    </ <ZGET ,LONG-WORD-TABLE 0> 2>
+				    *204*>>
+	       <PRINT <ZGET .TMP 1>>)
+	      (<NOT <EQUAL? .WD ,W?INT.NUM ,W?INT.TIM>>
+	       <PRINTB .WD>)>>)
+	(T
+<DEFMAC PRINT-VOCAB-WORD!- ('WD) <FORM PRINTB .WD>>)>
+
+;<DEFINE PARSER-M ()
+	<COPYT ,M-LEXV ,P-LEXV ,LEXV-LENGTH-BYTES>
+	<COPYT ,M-INBUF ,P-INBUF <+ 1 ,INBUF-LENGTH>>
+	<SETG P-LEN ,M-LEN>
+	<COND (<AND <NOT <0? ,VERBOSITY>> <EQUAL? ,PLAYER ,WINNER>>
+	       <CRLF>)>
+	<SETG TLEXV ,M-PTR>
+	<SETG M-PTR <>>
+	<SETG P-CONT <>>>
+
+<DEFINE DO-OOPS (OWINNER "AUX" (PTR ,P-LEXSTART) VAL)
+ <COND (<EQUAL? <ZGET ,TLEXV ,P-LEXELEN:FIX>
+		,W?PERIOD ,W?COMMA>
+	<SET PTR <+ .PTR ,P-LEXELEN:FIX>>
+	<SETG P-LEN <- ,P-LEN 1>>)>
+ <COND (<L=? ,P-LEN 1>
+	<NAKED-OOPS>
+	<>)
+       (<NOT <EQUAL? ,HERE <META-LOC .OWINNER>>>
+	<NOT-HERE .OWINNER>
+	<>)
+       (<SET VAL <ZGET ,OOPS-TABLE ,O-PTR>>
+	<REPLACE-ONE-TOKEN <- ,P-LEN 1> ,P-LEXV .PTR ,G-LEXV .VAL>
+	<SETG WINNER .OWINNER> ;"Fixes OOPS w/chars"
+	<COPY-INPUT T>
+	;<SETG P-OFLAG 0>
+	T)
+       (T
+	<ZPUT ,OOPS-TABLE ,O-END <>>
+	<CANT-OOPS>
+	<>)>>
+
+<DEFINE DO-AGAIN ACT (OWINNER "AUX" N)
+ <COND (<NOT <EQUAL? ,HERE <META-LOC .OWINNER>>>
+	<NOT-HERE .OWINNER>
+	<RETURN <> .ACT>)
+       (<OR <L? 0 ,P-OFLAG>	;"explicit orphan"
+	    <F? ,P-WON>
+	    <0? <GETB ,G-INBUF 2>>>
+	<CANT-AGAIN>
+	<RETURN <> .ACT>)
+       (<AND <G? ,P-LEN 1>
+	     <L? <- ,TLEXV ,P-LEXV>	;"for ZIP20 bug"
+		 <- ,LEXV-LENGTH-BYTES <* 2 ,P-LEXELEN>>>>
+	<SET N <ZGET ,TLEXV ,P-LEXELEN>>
+	<COND (<EQUAL? .N ,W?PERIOD ,W?COMMA ,W?THEN ,W?AND>
+	       ;<SETG TLEXV <ZREST ,TLEXV <* 2 ,P-LEXELEN>>>
+	       ;<SETG P-LEN <- ,P-LEN 1>>)
+	      (T
+	       <DONT-UNDERSTAND>
+	       <RETURN <> .ACT>)>)>
+ <SET N ,P-WORDS-AGAIN>
+ ;<SETG P-LEN <- ,P-LEN 1>>
+ ;<SETG TLEXV <ZREST ,TLEXV <* ,P-LEXELEN:FIX 2>>>
+ ;<COND (<G? ,P-LEN 0>
+	<COPYT ,P-LEXV ,M-LEXV ,LEXV-LENGTH-BYTES>
+	<COPYT ,P-INBUF ,M-INBUF <+ 1 ,INBUF-LENGTH>>
+	<SETG M-LEN ,P-LEN>
+	<SETG M-PTR ,TLEXV>
+	<SETG P-CONT ,M-PTR>)
+       (T
+	<SETG M-PTR <>>)>
+ <SETG WINNER .OWINNER>
+ ;<COPYT ,G-INBUF ,P-INBUF <+ 1 ,INBUF-LENGTH>>
+ ;<COPYT ,G-LEXV ,P-LEXV ,LEXV-LENGTH-BYTES>
+ ;<SETG P-LEN ,P-WORDS-AGAIN>
+ ;<SETG TLEXV <ZGET ,OOPS-TABLE ,O-START ;,O-AGAIN>>
+ <COND (<NOT <1? .N>>
+	<SETG P-LEN <+ ,P-LEN <- .N 1>>>
+	<MAKE-ROOM-FOR-TOKENS <- .N 1>
+			      ,P-LEXV
+			      </ <- ,TLEXV ,P-LEXV> 2>
+			      </ <- <ZGET ,OOPS-TABLE ,O-START ;,O-AGAIN> ,P-LEXV> 2>>
+	<COND (<T? ,P-CONT>
+	       <SETG P-CONT <+ ,P-CONT <* <- .N 1> <* 2 ,P-LEXELEN:FIX>>>>)>)>
+ <COPYT <+ ,G-LEXV <- <ZGET ,OOPS-TABLE ,O-START> ,P-LEXV>>
+	,TLEXV
+	<* .N <* 2 ,P-LEXELEN:FIX>>>
+ T>
+
+<DEFINE NP-SAVE (ROBJ "AUX" TMP)
+	<COPYT ,SEARCH-RES ,ORPHAN-SR <* 2 ,FIND-RES-LENGTH>>
+	<COPYT .ROBJ ,ORPHAN-NP <* 2 <+ 1 ,NP-LENGTH>>>
+	<COND (<T? <SET TMP <NP-LOC .ROBJ>>>
+	       <COPYT <LOCATION-OBJECT .TMP>
+		      ,ORPHAN-NP2
+		      <* 2 <+ 1 ,NOUN-PHRASE-MIN-LENGTH>>>
+	       <NP-LOC ,ORPHAN-NP ,ORPHAN-NP2>)
+	      (<T? <SET TMP <NP-OF .ROBJ>>>
+	       <COPYT .TMP ,ORPHAN-NP2 <* 2 <+ 1 ,NP-LENGTH>>>
+	       <NP-OF ,ORPHAN-NP ,ORPHAN-NP2>)
+	      (<T? <SET TMP <NP-EXCEPT .ROBJ>>>
+	       <COPYT .TMP ,ORPHAN-NP2 <* 2 <+ 1 ,NP-LENGTH>>>
+	       <NP-EXCEPT ,ORPHAN-NP ,ORPHAN-NP2>)>
+	<COND (<T? <SET TMP <NP-ADJS .ROBJ>>>
+	       <COPYT .TMP ,ORPHAN-ADJS <* 2 <+ 1 <+ 4 ,ADJS-MAX-COUNT>>>>
+	       <NP-ADJS ,ORPHAN-NP ,ORPHAN-ADJS>
+	       <COND (<AND <L=? 0 <SET TMP <ADJS-POSS .TMP>>>
+			   <L=? .TMP ,LAST-OBJECT>>
+		      <ADJS-POSS ,ORPHAN-ADJS .TMP>)
+		     (T
+		      ;<T? <SET TMP <ADJS-POSS .TMP>>>
+		      <COPYT .TMP ,ORPHAN-NP2 <* 2 <+ 1 ,NP-LENGTH>>>
+		      ;"TAA 5/23/89. ASK MERLIN ABOUT THE NIMUE'S GAUNTLET
+			gets confused 'cause there's a null ADJS for the possessive.
+			This would of course lose for the blue nimue's gauntlet,
+			but what it would lose is the blueness..."
+		      <COND (<PMEM? <NP-ADJS ,ORPHAN-NP2>>
+			     <NP-ADJS ,ORPHAN-NP2 <>>)>
+		      <ADJS-POSS ,ORPHAN-ADJS ,ORPHAN-NP2>)>)
+	      (T
+	       <NP-ADJS ,ORPHAN-NP 0>)>
+	,ORPHAN-NP>
+
+<DEFINE PARSER-ERROR ("OPT" (STR:<OR STRING FALSE> <>)
+		      (CLASS:<OR FIX FALSE> <>)
+		      (OTHER <>) (OTHER2 <>) (OTHER3 <>)
+		      "AUX" RP)
+  <COND (<NOT ,CURRENT-REDUCTION>
+	 ;"Died in parser itself--incomprehensible sentence")
+	(<OR <G? ,ERROR-PRIORITY
+		 <SET RP <REDUCTION-ERR-PRIORITY ,CURRENT-REDUCTION>>>
+	     <AND <EQUAL? ,ERROR-PRIORITY .RP>
+		  <OR <EQUAL? .CLASS ,PARSER-ERROR-ORPH-NP>
+		      <AND <NOT <EQUAL? .CLASS ,PARSER-ERROR-NOUND>>
+			   <EQUAL? <ZGET ,ERROR-ARGS 1>
+				   ,PARSER-ERROR-NOUND>>
+		      ;<AND <EQUAL? .CLASS ,PARSER-ERROR-NOOBJ
+					  ,PARSER-ERROR-ORPH-S>
+			   <EQUAL? <ZGET ,ERROR-ARGS 1>
+				   ,PARSER-ERROR-TMNOUN>>>>>
+	 <SETG ERROR-PRIORITY .RP>
+	 <SETG ERROR-STRING .STR>
+	 <COND (.CLASS
+		<ZPUT ,ERROR-ARGS 0 3>
+		<ZPUT ,ERROR-ARGS 1 .CLASS>
+		<ZPUT ,ERROR-ARGS 2 .OTHER>
+		<ZPUT ,ERROR-ARGS 3 .OTHER2>
+		<COND (<PMEM? .OTHER>
+		       <COND (<PMEM-TYPE? .OTHER NOUN-PHRASE>
+			      <SET OTHER <NOUN-PHRASE-NP1 .OTHER>>)>
+		       <COND (<PMEM-TYPE? .OTHER NP>
+			      <ZPUT ,ERROR-ARGS 2 <NP-SAVE .OTHER>>
+			      <COND (<AND <EQUAL? .CLASS ,PARSER-ERROR-NOOBJ>
+					  <ZERO? <NP-QUANT .OTHER>>>
+				     <ZPUT ,ERROR-ARGS 3 .OTHER3>)>)>)>)
+	       (T
+		<ZPUT ,ERROR-ARGS 0 0>)>)>
+  <>>
+
+<DEFAULT-DEFINITION BUZZER-WORD?
+
+<IFN-P-BE-VERB
+<CONSTANT P-W-WORDS
+	<PLTABLE
+		<VOC "WHAT">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WHAT\'S">>
+		<VOC "WHEN">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WHEN\'S">>
+		<VOC "WHERE">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WHERE\'S">>
+		<VOC "WHO">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WHO\'S">>
+		<VOC "WHY">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WHY\'S">>
+		<VOC "HOW">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "HOW\'S">>
+		<VOC "WOULD">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "WOULDN\'T">>
+		<VOC "COULD">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "COULDN\'T">>
+		<VOC "SHOULD">
+		<IFN-P-APOSTROPHE-BREAKS-WORDS <VOC "SHOULDN\'T">>>>>
+
+<IFN-P-BE-VERB
+<IFFLAG
+(P-APOSTROPHE-BREAKS-WORDS
+<CONSTANT P-Q-WORDS1
+       <PLTABLE	<IFN-P-BE-VERB <VOC "AREN">>
+		<IFN-P-BE-VERB <VOC "CAN">>
+		<IFN-P-BE-VERB <VOC "COULDN">>
+		<IFN-P-BE-VERB <VOC "DIDN">>
+		<IFN-P-BE-VERB <VOC "DOESN">>
+		<IFN-P-BE-VERB <VOC "DON">>
+		<VOC "HASN">
+		<VOC "HAVEN">
+		<IFN-P-BE-VERB <VOC "HE">>
+		<VOC "I">
+		<VOC "I">
+		<IFN-P-BE-VERB <VOC "I">>
+		<VOC "I">
+		<IFN-P-BE-VERB <VOC "ISN">>
+		<IFN-P-BE-VERB <VOC "IT">>
+		<VOC "LET">
+		;<VOC "SHAN">
+		<IFN-P-BE-VERB <VOC "SHE">>
+		<IFN-P-BE-VERB <VOC "SHOULDN">>
+		<IFN-P-BE-VERB <VOC "THAT">>
+		<IFN-P-BE-VERB <VOC "THEY">>
+		<IFN-P-BE-VERB <VOC "WASN">>
+		<IFN-P-BE-VERB <VOC "WE">>
+		<VOC "WE">
+		<IFN-P-BE-VERB <VOC "WEREN">>
+		<IFN-P-BE-VERB <VOC "WON">>
+		<IFN-P-BE-VERB <VOC "WOULDN">>
+		<IFN-P-BE-VERB <VOC "YOU">>>>
+
+<CONSTANT P-Q-WORDS2
+       <PLTABLE	<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<VOC "T">
+		<VOC "T">
+		<IFN-P-BE-VERB <VOC "S">>
+		<VOC "D">
+		<VOC "LL">
+		<IFN-P-BE-VERB <VOC "M">>
+		<VOC "VE">
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "S">>
+		<VOC "S">
+		;<VOC "T">
+		<IFN-P-BE-VERB <VOC "S">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "S">>
+		<IFN-P-BE-VERB <VOC "RE">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "RE">>
+		<VOC "LL">
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "T">>
+		<IFN-P-BE-VERB <VOC "RE">>>>)
+(T
+<CONSTANT P-Q-WORDS1
+       <PLTABLE	<IFN-P-BE-VERB <VOC "AREN\'T">>
+		<IFN-P-BE-VERB <VOC "CAN\'T">>
+		<IFN-P-BE-VERB <VOC "COULDN\'T">>
+		<IFN-P-BE-VERB <VOC "DIDN\'T">>
+		<IFN-P-BE-VERB <VOC "DOESN\'T">>
+		<IFN-P-BE-VERB <VOC "DON\'T">>
+		<VOC "HASN\'T">
+		<VOC "HAVEN\'T">
+		<IFN-P-BE-VERB <VOC "HE\'S">>
+		<VOC "I\'D">
+		<VOC "I\'LL">
+		<IFN-P-BE-VERB <VOC "I\'M">>
+		<VOC "I\'VE">
+		<IFN-P-BE-VERB <VOC "ISN\'T">>
+		<IFN-P-BE-VERB <VOC "IT\'S">>
+		<VOC "LET\'S">
+		;<VOC "SHAN\'T">
+		<IFN-P-BE-VERB <VOC "SHE\'S">>
+		<IFN-P-BE-VERB <VOC "SHOULDN\'T">>
+		<IFN-P-BE-VERB <VOC "THAT\'S">>
+		<IFN-P-BE-VERB <VOC "THEY\'RE">>
+		<IFN-P-BE-VERB <VOC "WASN\'T">>
+		<IFN-P-BE-VERB <VOC "WE\'RE">>
+		<VOC "WE\'LL">
+		<IFN-P-BE-VERB <VOC "WEREN\'T">>
+		<IFN-P-BE-VERB <VOC "WON\'T">>
+		<IFN-P-BE-VERB <VOC "WOULDN\'T">>
+		<IFN-P-BE-VERB <VOC "YOU\'RE">>>>)>
+
+;<GLOBAL QUESTION-WORD-COUNT:NUMBER 2>
+<CONSTANT P-Q-WORDS
+	<PLTABLE
+		<IFN-P-BE-VERB <VOC "AM">>
+		;<VOC "ANY">
+		<IFN-P-BE-VERB <VOC "ARE">>
+		<IFN-P-BE-VERB <VOC "CAN">>
+		<IFN-P-BE-VERB <VOC "COULD">>
+		<IFN-P-BE-VERB <VOC "DID">>
+		<IFN-P-BE-VERB <VOC "DO">>
+		<VOC "HAS">
+		<VOC "HAVE">
+		<IFN-P-BE-VERB <VOC "IS">>
+		<VOC "LIKE">
+		;<IFN-P-BE-VERB <VOC "MAY">>
+		;<IFN-P-BE-VERB <VOC "SHALL">>
+		<IFN-P-BE-VERB <VOC "SHOULD">>
+		<VOC "WANT">
+		<IFN-P-BE-VERB <VOC "WAS">>
+		<IFN-P-BE-VERB <VOC "WERE">>
+		;<VOC "WHICH">
+		<IFN-P-BE-VERB <VOC "WILL">>
+		<IFN-P-BE-VERB <VOC "WOULD">>>>>
+
+<CONSTANT P-N-WORDS
+	<PLTABLE <VOC "ZERO">
+		;<VOC "EIGHT">
+		;<VOC "NINE">
+		<VOC "TEN">
+		<VOC "ELEVEN">
+		<VOC "TWELVE">
+		<VOC "THIRTEEN">
+		<VOC "FOURTEEN">
+		<VOC "FIFTEEN">
+		<VOC "SIXTEEN">
+		<VOC "SEVENTEEN">
+		<VOC "EIGHTEEN">
+		<VOC "NINETEEN">
+		<VOC "TWENTY">
+		<VOC "THIRTY">
+		<VOC "FORTY">
+		<VOC "FIFTY">
+		<VOC "SIXTY">
+		<VOC "SEVENTY">
+		<VOC "EIGHTY">
+		<VOC "NINETY">
+		<VOC "HUNDRED">
+		<VOC "THOUSAND">
+		<VOC "MILLION">
+		<VOC "BILLION">>>
+
+<CONSTANT P-C-WORDS
+	<PLTABLE
+		<VOC "ASS">
+		<VOC "ASSHOLE">
+		<VOC "BASTARD">
+		<VOC "BITCH">
+		<VOC "COCK">
+		<VOC "COCKSUCKER">
+		<VOC "CRAP">
+		<VOC "CUNT">
+		;<VOC "CURSE">
+		<VOC "CUSS">
+		<VOC "DAMN">
+		<VOC "DAMNED">
+		<VOC "FUCK">
+		<VOC "FUCKED">
+		<VOC "FUCKER">
+		<VOC "FUCKING">
+		<VOC "GODDAMN">
+		<VOC "GODDAMNED">
+		<VOC "HELL">
+		<VOC "PISS">
+		<VOC "SCREW">
+		<VOC "SHIT">
+		<VOC "SHITHEAD">
+		;<VOC "SUCK">
+		<VOC "SUCKS">>>
+
+<DEFINE BUZZER-WORD? (WD PTR "AUX" N)
+ <IFN-P-BE-VERB
+ <SETG P-ERRS <+ 3 ,P-ERRS>>
+ <COND (<EQUAL? .WD ,W?\(SOMETHI ,W?SOMETHING>
+	<TELL "[Type a real word instead of" ,P-SOMETHING>
+	<RTRUE>)
+       (<INTBL? .WD <ZREST ,P-W-WORDS 2> <ZGET ,P-W-WORDS 0>>
+	<W-WORD-REPLY .WD>
+	<RTRUE>)
+       (<OR <INTBL? .WD <ZREST ,P-Q-WORDS 2> <ZGET ,P-Q-WORDS 0>>
+	    <IFFLAG (P-APOSTROPHE-BREAKS-WORDS
+		     <AND <SET N <INTBL? .WD <ZREST ,P-Q-WORDS1 2>
+					     <ZGET ,P-Q-WORDS1 0>>>
+			  <EQUAL? <ZGET .PTR ,P-LEXELEN> ,W?APOSTROPHE>
+			  <EQUAL? <ZGET ,P-Q-WORDS2 <- .N ,P-Q-WORDS1>>
+				  <ZGET .PTR <* 2 ,P-LEXELEN>>>>)
+		    (T <INTBL? .WD <ZREST ,P-Q-WORDS1 2>
+				   <ZGET ,P-Q-WORDS1 0>>)>>
+	<TELL-PLEASE-USE-COMMANDS>
+	<RTRUE>)>>
+ <COND (<INTBL? .WD <ZREST ,P-N-WORDS 2> <ZGET ,P-N-WORDS 0>>
+	<TELL "[Use numerals for numbers, for example \"10.\"]" CR>
+	<RTRUE>)
+       (<INTBL? .WD <ZREST ,P-C-WORDS 2> <ZGET ,P-C-WORDS 0>>
+	<TELL !\[ <PICK-ONE ,OFFENDED> "]" CR>
+	<RTRUE>)
+       (T <RFALSE>)>>
+
+<CONSTANT OFFENDED
+	<LTABLE 0
+		"What charming language!"
+		"Computers aren't impressed by naughty words!"
+		"You ought to be ashamed of yourself!"
+		"Hey, save that talk for the locker room!"
+		"Step outside and say that!"
+		"And so's your old man!">>
+
+<IFN-P-BE-VERB
+<DEFINE W-WORD-REPLY (WD)
+ <COND (<OR <NOT <EQUAL? .WD ,W?WHAT ,W?WHO>>
+	    <NOT <EQUAL? ,WINNER ,PLAYER>>>
+	<COND (<EQUAL? .WD ,W?WHERE>
+	       <TO-DO-X-USE-Y "locate" "FIND">
+	       <RTRUE>)
+	      (T
+	       <TO-DO-X-USE-Y "ask about" "TELL ME ABOUT">
+	       <RTRUE>)>)
+       (T
+	<TELL "[Maybe you could ">
+	<COND (<FSET? ,LIBRARY ,TOUCHBIT>
+	       <TELL "look that up in the">)
+	      (T
+	       <TELL "find an">)>
+	<TELL " encyclopedia.]" CR>)>>
+
+<DEFINE TO-DO-X-USE-Y (STR1 STR2)
+	<TELL
+"[To " .STR1 " something, use the command: " .STR2 ,P-SOMETHING>
+	<RTRUE>>
+
+<CONSTANT P-SOMETHING " (something).]|">
+<VOC "(SOMETHI">
+<VOC "SOMETHING">
+
+<DEFINE TELL-PLEASE-USE-COMMANDS
+		("AUX" (THRESH <COND (<FSET? ,GREAT-HALL ,TOUCHBIT> 10)(T 2)>))
+	<TELL "[">
+	;<SETG QUESTION-WORD-COUNT <+ 1 ,QUESTION-WORD-COUNT>>
+	<COND (<L? ,P-ERRS .THRESH>
+	       ;<NOT <ZERO? <MOD ,QUESTION-WORD-COUNT 4>>>
+	       <PRINT "Please use commands">
+	       <TELL ", not statements or questions">
+	       <PRINTR ".]">)
+	      (T
+	       <TELL-SAMPLE-COMMANDS>)>>
+>>
+
+<DEFAULT-DEFINITION NUMBER?
+<ADD-WORD "INT.NUM" ADJ>
+<ADD-WORD "INT.NUM" NOUN>
+<ADD-WORD "INT.TIM" ADJ>
+<ADD-WORD "INT.TIM" NOUN>
+
+<DEFINE NUMBER? N? (RLEXV:TABLE "AUX" BPTR:FIX
+				      (SUM:FIX 0) (TIM:NUMBER 0) (NEG:FLAG <>))
+  <SET BPTR <LEXV-WORD-OFFSET .RLEXV>>
+  <REPEAT (CHR:FIX (CNT:FIX <LEXV-WORD-LENGTH .RLEXV>))
+     <COND (<L? <SET CNT <- .CNT 1>> 0>
+	    <RETURN>)
+	   (T
+	    <SET CHR <GETB ,P-INBUF .BPTR>>
+	    <COND (<==? .CHR !\:>
+		   <SET TIM .SUM>
+		   <SET SUM 0>)
+		  (<==? .CHR !\->
+		   <COND (<T? .NEG>
+			  <RETURN <> .N?>)
+			 (T <SET NEG T>)>)
+		  (<OR <G? .CHR !\9>
+		       <L? .CHR !\0>>
+		   <RETURN <> .N?>)
+		  (<G? .SUM 3276>
+		   <RETURN <> .N?>)
+		  (T
+		   <SET SUM <+ <* .SUM 10>
+			       <- .CHR !\0>>>)>
+	    <SET BPTR <+ .BPTR 1>>)>>
+  <COND (<T? .TIM>
+	 <COND (<G? .TIM 23>
+		<RETURN <> .N?>)
+	       (<T? .NEG>
+		<RETURN <> .N?>)>
+	 <SET SUM <+ .SUM <* .TIM 60>>>
+	 <CHANGE-LEXV .RLEXV ,W?INT.TIM .BPTR .SUM>
+	 ,W?INT.TIM)
+	(T
+	 <COND (<T? .NEG>
+		<SET SUM <- 0 .SUM>>)>
+	 <CHANGE-LEXV .RLEXV ,W?INT.NUM .BPTR .SUM>
+	 ,W?INT.NUM)>>>
+
+<DEFINE CHANGE-LEXV (PTR WRD "OPT" BPTR SUM "AUX" X)
+	<LEXV-WORD .PTR .WRD>
+	<LEXV-WORD <SET X <ZREST ,G-LEXV <- .PTR ,P-LEXV>>> .WRD>
+	<COND (<ASSIGNED? BPTR>
+	       <ZPUT .PTR 1 .SUM>
+	       <ZPUT .X 1 .SUM>
+	       <SETG P-NUMBER .SUM>)>>
+
+<CONSTANT GWIM-MSG <TABLE 0 ;"prep" 0 ;"object"
+			  0 ;"noun phrase" 0 ;"object">>
+
+<DEFAULT-DEFINITION TELL-GWIM-MSG
+<DEFINE TELL-GWIM-MSG ("AUX" WD VB)
+	<TELL !\[>
+	<COND (<T? <SET WD <ZGET ,GWIM-MSG 0>>>
+	       <PRINT-VOCAB-WORD .WD>
+	       <TELL !\ >
+	       <SET VB <PARSE-VERB ,PARSER-RESULT>>
+	       <COND (<EQUAL? .VB ,W?SIT ,W?LIE>
+		      <COND (<EQUAL? .WD ,W?DOWN>
+			     <TELL "on ">)>)
+		     (<EQUAL? .VB ,W?GET>
+		      <COND (<EQUAL? .WD ,W?OUT>
+			     <TELL "of ">)>)>)>
+	<TELL-THE <ZGET ,GWIM-MSG 1>>
+	<TELL "]" CR>>>
+
+;<DEFAULT-DEFINITION CANT-UNDO
+<IF-UNDO
+<DEFINE CANT-UNDO ()
+	<TELL "[I can't undo that.]" CR>>>>
+
+<IF-P-PS-ADV
+<DEFINE DO-IT-AGAIN ("OPT" (NUM 1) "AUX" X TMP)
+	<SET X </ <- ,TLEXV ,P-LEXV> 2>>
+	<COND (<ZERO? ,P-CONT>
+	       <SET X <+ .X ,P-LEXELEN>>)>
+	<COND (<SET TMP <ZGET ,OOPS-TABLE ,O-START>>	;"restore P-LEXWORDS"
+	       <SET TMP </ <- .TMP <ZREST ,P-LEXV <* 2 ,P-LEXSTART>>>
+			   ,LEXV-ELEMENT-SIZE-BYTES>>
+	       <PUTB ,G-LEXV ,P-LEXWORDS <+ <GETB ,G-LEXV ,P-LEXWORDS> .TMP>>)>
+	<PROG ()
+	      <MAKE-ROOM-FOR-TOKENS 2 ,G-LEXV .X>
+	      <ZPUT ,G-LEXV .X ,W?PERIOD>
+	      <ZPUT ,G-LEXV <+ .X ,P-LEXELEN> ,W?AGAIN>
+	      <COND (<NOT <L? <SET NUM <- .NUM 1>> 1>>
+		     <AGAIN>)
+		    (T
+		     <PUTB ,G-LEXV ,P-LEXWORDS
+			   <- <GETB ,G-LEXV ,P-LEXWORDS> .TMP>>
+		     <COPY-INPUT T>
+		     <SETG P-OFLAG 0>
+		     T)>>>>
+
+<END-SEGMENT>
+<ENDPACKAGE>
