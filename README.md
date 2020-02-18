@@ -1,4 +1,4 @@
-# Z Machine version 6 Parser Library
+# Z-machine version 6 Parser Library
 
 ## Resources
 
