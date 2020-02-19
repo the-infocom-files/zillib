@@ -114,6 +114,7 @@ VERB-STUFF-ID
 <VERSION? (ZIP ...) (XZIP ...) (T ...)>
 If `predicate' part is not string or atom, generates cond for that
 clause only.  In muddle, just generates cond for the whole thing..."
+;<BIND ((REDEFINE T))>
 <DEFMAC VERSION? ("ARGS" LIST "AUX" (FIRST? T))
   <COND
    (<ZILCH?>
@@ -162,6 +163,7 @@ clause only.  In muddle, just generates cond for the whole thing..."
 			  (T .L)>)>>
 	   .LIST>
      FORM>)>>
+;<>
 
 <DEFMAC IF-MUDDLE ('MUDDLE "OPT" ('ZILCH T))
   <COND (<ZILCH?>
@@ -247,9 +249,9 @@ is the adjective ID, if present."
   <COND (<NOT <ZILCH?>>
 	 <SET OFFS <GET-OFFS 2>>)
 	(<COMPILATION-FLAG-VALUE WORD-FLAGS-IN-TABLE>
-	 <SET OFFS <GET-OFFS 2>>)
+	 <SET OFFS <GET-OFFS 1>>)
 	(T
-	 <SET OFFS <GET-OFFS 1>>)>
+	 <SET OFFS <GET-OFFS 2>>)>
   <SET WD <CHTYPE [.WD VWORD] ADECL>>
   <COND (<OR <NOT <ZILCH?>>
 	     <NOT <COMPILATION-FLAG-VALUE ONE-BYTE-PARTS-OF-SPEECH>>>
@@ -273,14 +275,14 @@ is the adjective ID, if present."
 	 <FORM BIND (X)
 	   <FORM COND (<FORM SET X <FORM INTBL? .WD
 					 <FORM REST
-					       ,WORD-FLAG-TABLE 2>
+					       ',WORD-FLAG-TABLE 2>
 					 <FORM ZGET
-					       ,WORD-FLAG-TABLE 0>
+					       ',WORD-FLAG-TABLE 0>
 					 *204*>>
 		       <COND (<ASSIGNED? NEW>
 			      <FORM ZPUT '.X 1 .NEW>)
 			     (T
-			      <FORM GET '.X 1>)>)
+			      <FORM ZGET '.X 1>)>)
 		 (T <>)>>)
 	(T
 	 <SET WD <CHTYPE [.WD VWORD] ADECL>>
@@ -340,7 +342,7 @@ is the adjective ID, if present."
 		   (T
 		    <SET OFFS <+ ,EZIP-ZWORD-BYTES 0>>)>)
 	(T
-	 <SET OFFS 6>)>
+	 <SET OFFS 2>)>
   <COND (<ASSIGNED? NEW>
 	 <FORM PUTB .WD .OFFS <CHTYPE [.NEW '<OR FALSE STRING FIX>] ADECL>>)
 	(T

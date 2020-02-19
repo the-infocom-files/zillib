@@ -23,7 +23,7 @@ Make sure flag in V-HINTS-OFF syntax is correct (RLANDBIT, KLUDGEBIT, etc.)."
 <IFFLAG (SEGMENTED-HINTS
 	 <BEGIN-SEGMENT 0>)
 	(ELSE
-	 <BEGIN-SEGMENT HINTS>)>>
+	 <BEGIN-SEGMENT HINTS>)>
 
 <DEFAULT-DEFINITION HINT-TITLES
 	<CONSTANT RETURN-SEE-HINT	;"Hit " "Return for hints.">
@@ -35,7 +35,7 @@ Make sure flag in V-HINTS-OFF syntax is correct (RLANDBIT, KLUDGEBIT, etc.)."
 	<CONSTANT Q-RESUME-STORY	;"Hit " "Q to resume story.">
 	<CONSTANT H-OR-USE-MOUSE	"(Or use mouse.)">
 	<GLOBAL H-OR-USE-MOUSE-WID:NUMBER 0>
-	<CONSTANT NO-MORE-HINTS		"[No more hints.]">>>
+	<CONSTANT NO-MORE-HINTS		"[No more hints.]">>
 
 <END-SEGMENT>
 
