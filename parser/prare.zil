@@ -1,15 +1,15 @@
 "PRARE file for NEW PARSER
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZPACKAGE "PARSER">
+<ZZPACKAGE "parser">
 
 <RENTRY	PRINT-LEXV
 	TELL-CTHE
 	TELL-THE>
 
-<INCLUDE "BASEDEFS" "PBITDEFS" "PDEFS">
+<INCLUDE "basedefs" "pbitdefs" "pdefs">
 
-<USE "PMEM" "PSTACK" "REDS">
+<USE "pmem" "pstack" "reds">
 
 <FILE-FLAGS MDL-ZIL? CLEAN-STACK?>
 

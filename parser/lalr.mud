@@ -1,12 +1,12 @@
-<ZZPACKAGE "LALR">
+<ZZPACKAGE "lalr">
 ; "This is not really ZIL code, even though it sort of pretends to be..."
 
 <ENTRY LALR MAKE-TABLES BIG-Q
        PRINT-ACTION-TABLE PRINT-STATE>
 
-<INCLUDE "BASEDEFS" "LALRDEFS" "SYMBOLS" "SET">
+<INCLUDE "basedefs" "lalrdefs" "symbols" "set">
 
-<USE-WHEN <COMPILING? "LALR"> "SORT-MACROS">
+<USE-WHEN <COMPILING? "lalr"> "sort-macros">
 
 "ACTION-TABLE has length word, which saves a lot a grief..."
 <DEFINE PRINT-ACTION-TABLE PAT ("OPTIONAL"

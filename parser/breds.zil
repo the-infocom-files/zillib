@@ -1,14 +1,14 @@
 "BREDS file: adds verb BE to parser.
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZPACKAGE "REDS">
+<ZZPACKAGE "reds">
 
 <ENTRY	RED-BE-FORM RED-BE RED-NOT RED-SNBN RED-SNBA RED-SNBP RED-SNBAP
 	RED-CANDO>
 
-<INCLUDE "BASEDEFS" "FIND" "PBITDEFS" "PDEFS">
+<INCLUDE "basedefs" "find" "pbitdefs" "pdefs">
 
-<USE "NEWSTRUC" "PARSER" "PMEM" "PSTACK">
+<USE ;"NEWSTRUC" "parser" "pmem" "pstack">
 
 <FILE-FLAGS MDL-ZIL? ;ZAP-TO-SOURCE-DIRECTORY?>
 

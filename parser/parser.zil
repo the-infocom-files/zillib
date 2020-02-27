@@ -1,7 +1,7 @@
 "PARSER file for NEW PARSER
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZPACKAGE "PARSER">
+<ZZPACKAGE "parser">
 
 <ENTRY PARSER PARSE-SENTENCE PARSE-IT PARSER-ERROR TLEXV P-OFLAG P-WALK-DIR
 	RED-SD ;" P-PRSO P-PRSI PRSA PRSO PRSI">
@@ -40,9 +40,9 @@ Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 	VISIBLE?
 	WINNER>
 
-<INCLUDE "BASEDEFS" "PBITDEFS" "PDEFS" "SYMBOLS">
+<INCLUDE "basedefs" "pbitdefs" "pdefs" "symbols">
 
-<USE "PSTACK" "PMEM">
+<USE "pstack" "pmem">
 
 <FILE-FLAGS MDL-ZIL? CLEAN-STACK?>
 

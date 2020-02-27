@@ -1,11 +1,11 @@
 "FIND file for NEW PARSER
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZSECTION "FIND">
+<ZZSECTION "find">
 
-<INCLUDE "BASEDEFS" "PDEFS" "PBITDEFS">
+<INCLUDE "basedefs" "pdefs" "pbitdefs">
 
-<USE "NEWSTRUC" "PARSER" "PMEM">
+<USE ;"NEWSTRUC" "parser" "pmem">
 
 <BLOCK (<ROOT>)>
 THINGS

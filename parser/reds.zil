@@ -1,7 +1,7 @@
 "REDS file: imitates old parser.
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZPACKAGE "REDS">
+<ZZPACKAGE "reds">
 
 <ENTRY	RED-SP RED-ADV RED-PART
 	RED-SV RED-SVN RED-SVPNPN RED-SVD
@@ -12,9 +12,9 @@ Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
 <ENTRY ABS>
 
-<INCLUDE "BASEDEFS" "FIND" "PBITDEFS" "PDEFS">
+<INCLUDE "basedefs" "find" "pbitdefs" "pdefs">
 
-<USE "NEWSTRUC" "PARSER" "PMEM" "PSTACK">
+<USE ;"NEWSTRUC" "parser" "pmem" "pstack">
 
 <FILE-FLAGS MDL-ZIL? ;ZAP-TO-SOURCE-DIRECTORY?>
 

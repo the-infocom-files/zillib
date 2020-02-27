@@ -1,13 +1,13 @@
 "GRAM file: imitates old parser and worth an ounce of cure.
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<USE "LALR" "PSTACK" "REDS">
+<USE "lalr" "pstack" "reds">
 
-<IFFLAG (IN-ZILCH
+;<IFFLAG (IN-ZILCH
 	 <USE "ZILCH">)
 	(T <USE "ZIL">)>
 
-<INCLUDE "SYMBOLS" "BASEDEFS" "LALRDEFS">
+<INCLUDE "symbols" "basedefs" "lalrdefs">
 
 "TERMINALS are defined in DEFS, so they'll be around for compiling
 stuff.  This resets everything else, so we can regenerate the grammar."

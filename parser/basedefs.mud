@@ -1,11 +1,11 @@
-<DEFINITIONS "BASEDEFS">
+<DEFINITIONS "basedefs">
 
-<COND (<GASSIGNED? ZILCH!-PACKAGE>
+;<COND (<GASSIGNED? ZILCH!-PACKAGE>
        <USE "ZILCH">)
       (T
        <USE "ZIL">)>
 
-<USE "NEWSTRUC">
+;<USE "NEWSTRUC">
 
 <BLOCK (<ROOT>)>
 NUMBER-WORD-CLASSES
@@ -13,7 +13,7 @@ GET-CLASSIFICATION
 VERB-STUFF-ID
 <ENDBLOCK>
 
-<INCLUDE "SYMBOLS">
+<INCLUDE "symbols">
 
 ; "Oddly enough, you have to do more than change this to cause winnage..."
 <MSETG MAX-VERB-ARGS 2>

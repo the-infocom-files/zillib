@@ -1,11 +1,11 @@
 "PDEFS file for NEW PARSER
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<ZZSECTION "PDEFS">
+<ZZSECTION "pdefs">
 
-<USE "NEWSTRUC" "PMEM">
+<USE ;"NEWSTRUC" "pmem">
 
-<INCLUDE "BASEDEFS">
+<INCLUDE "basedefs">
 
 <FILE-FLAGS MDL-ZIL? ZAP-TO-SOURCE-DIRECTORY?>
 

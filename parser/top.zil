@@ -1,7 +1,7 @@
 "TOP for NEW PARSER
 Copyright (C) 1988 Infocom, Inc.  All rights reserved."
 
-<INCLUDE "BASEDEFS" "PBITDEFS" "PDEFS">
+<INCLUDE "basedefs" "pbitdefs" "pdefs">
 
 <FILE-FLAGS MDL-ZIL?>
 

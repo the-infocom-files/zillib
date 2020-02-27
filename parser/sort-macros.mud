@@ -1,6 +1,6 @@
 ;"SORT-MACROS by JM"
 
-<PACKAGE "SORT-MACROS">
+<PACKAGE "sort-macros">
 
 <ENTRY MERGESORT-MACRO>
 
